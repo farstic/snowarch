@@ -1,0 +1,40 @@
+{
+  "name": "snowarch",
+  "version": "2.2.1",
+  "private": true,
+  "description": "AI ServiceNow Architect — Claude Code engine + bundled ServiceNow MCP server (snowarch)",
+  "license": "BUSL-1.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/farstic/snowarch.git"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "tools/snowarch"
+  ],
+  "scripts": {
+    "bootstrap": "node tools/snowarch/bin/snowarch.mjs bootstrap",
+    "doctor": "node tools/snowarch/bin/snowarch.mjs doctor",
+    "test": "node scripts/ci/test-all.mjs",
+    "lint": "node scripts/gen-docs-areas.mjs --check && npm run gen:check && npm run lint --workspaces --if-present && npm run lint:contract",
+    "type-check": "npm run type-check --workspaces --if-present",
+    "build:dist": "node scripts/build-dist.mjs",
+    "release": "node scripts/release.mjs",
+    "lint:contract": "node packages/contract/validate.mjs && node --test tests/contract/no-literals.test.mjs && node packages/contract/gen-retired-names.mjs --check && node packages/contract/lint/engine-lint.mjs --only L04,L05,L06,L07,L08,L09,L11 && node scripts/ci/lint-name-summary.mjs",
+    "pin": "node packages/contract/pin.mjs",
+    "gen": "node scripts/gen-all.mjs",
+    "gen:check": "node scripts/gen-all.mjs --check",
+    "test:contract": "npm run test:nocov -w packages/snowarch -- tests/contract.test.ts",
+    "contract": "node scripts/contract-gate.mjs"
+  },
+  "overrides": {
+    "minimatch": "^10.2.2"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1"
+  }
+}

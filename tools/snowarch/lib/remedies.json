@@ -1,0 +1,45 @@
+{
+  "$comment": "ARC-06-S04. One sentence per check id per platform. The launchers (ARC-06-S10/S11) print these WITHOUT Node, so they are data rather than code, and their parity test reads this file. `default` is used when a platform has no row of its own.",
+  "root": {
+    "darwin": "cd \"{root}\" && ./bootstrap.sh",
+    "linux": "cd \"{root}\" && ./bootstrap.sh",
+    "win32": "pushd \"{root}\"\n.\\bootstrap.cmd",
+    "default": "cd \"{root}\" && ./bootstrap.sh"
+  },
+  "git": {
+    "darwin": "xcode-select --install (or: brew install git)",
+    "linux": "install git with your distribution's package manager (apt install git · dnf install git)",
+    "win32": "winget install Git.Git",
+    "default": "install a newer git from https://git-scm.com/downloads"
+  },
+  "claudeCode": {
+    "darwin": "install Claude Code from https://code.claude.com/docs/en/setup, then re-run",
+    "linux": "install Claude Code from https://code.claude.com/docs/en/setup, then re-run",
+    "win32": "install Claude Code from https://code.claude.com/docs/en/setup, then re-run",
+    "default": "install Claude Code from https://code.claude.com/docs/en/setup, then re-run"
+  },
+  "disk": {
+    "darwin": "free up {needed} on {mount}",
+    "linux": "free up {needed} on {mount}",
+    "win32": "free up {needed} on {mount}",
+    "default": "free up {needed} on {mount}"
+  },
+  "network": {
+    "darwin": "check your network, or set HTTPS_PROXY / NO_PROXY for your environment, and re-run",
+    "linux": "check your network, or set HTTPS_PROXY / NO_PROXY for your environment, and re-run",
+    "win32": "check your network, or set HTTPS_PROXY / NO_PROXY for your environment, and re-run",
+    "default": "check your network, or set HTTPS_PROXY / NO_PROXY for your environment, and re-run"
+  },
+  "node": {
+    "darwin": "brew install node@22",
+    "linux": "install Node.js from your distribution's package manager, or use nvm",
+    "win32": "winget install OpenJS.NodeJS.LTS",
+    "default": "install a newer Node.js from https://nodejs.org/en/download"
+  },
+  "platform": {
+    "darwin": "a 64-bit build of Node.js is recommended",
+    "linux": "a 64-bit build of Node.js is recommended",
+    "win32": "a 64-bit build of Node.js is recommended",
+    "default": "a 64-bit build of Node.js is recommended"
+  }
+}

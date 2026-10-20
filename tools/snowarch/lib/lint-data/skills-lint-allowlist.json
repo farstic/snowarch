@@ -1,0 +1,5 @@
+{
+  "_rule": "SK-02 exemptions. A ratchet: entries leave, none arrive. ARC-02-S02 populated both lists with the 27 skills whose descriptions exceeded the budget and the 27 carrying a top-level `version:`; ARC-02-S03 rewrote every description and migrated every version key, so both are empty and the CEILING constant in tests/skills-lint.test.mjs is 0. An addition here is a regression, not a decision.",
+  "length": [],
+  "version": []
+}

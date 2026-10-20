@@ -1,0 +1,406 @@
+{
+  "$schema": "./required-tools.schema.json",
+  "contractVersion": 1,
+  "contractSha256": "2eb5b9945857ecf3c4e91be6398639c7aef4d1e2e15209130fb6bbd9b3566a3e",
+  "serverKey": "servicenow",
+  "tools": [
+    {
+      "name": "snow_ai_agentic_workflow_add",
+      "gate": "now_assist",
+      "alsoRequires": "write",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "now-assist-specialist"
+      ]
+    },
+    {
+      "name": "snow_ai_ai_agent_add",
+      "gate": "now_assist",
+      "alsoRequires": "write",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "now-assist-specialist"
+      ]
+    },
+    {
+      "name": "snow_atf_atf_suite_exec",
+      "gate": "atf",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "atf-author"
+      ]
+    },
+    {
+      "name": "snow_atf_atf_test_exec",
+      "gate": "atf",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "atf-author"
+      ]
+    },
+    {
+      "name": "snow_cmdb_reconcile",
+      "gate": "cmdb_write",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "cmdb-csdm-specialist"
+      ]
+    },
+    {
+      "name": "snow_core_capabilities_read",
+      "gate": "none",
+      "mutates": false,
+      "used_by": [
+        "/snowarch status",
+        "/snowarch doctor"
+      ]
+    },
+    {
+      "name": "snow_core_current_instance_read",
+      "gate": "none",
+      "mutates": false,
+      "used_by": [
+        "/snowarch status"
+      ]
+    },
+    {
+      "name": "snow_core_health_dashboard_read",
+      "gate": "none",
+      "mutates": false,
+      "used_by": [
+        "itom-discovery-specialist",
+        "performance-scale-specialist"
+      ]
+    },
+    {
+      "name": "snow_core_instance_switch",
+      "gate": "none",
+      "mutates": false,
+      "sessionMutates": true,
+      "used_by": [
+        "§2.1",
+        "/snowarch status"
+      ]
+    },
+    {
+      "name": "snow_core_instances_reload",
+      "gate": "none",
+      "mutates": false,
+      "used_by": [
+        "/snowarch setup-instance",
+        "/snowarch doctor"
+      ]
+    },
+    {
+      "name": "snow_core_natural_language_modify",
+      "gate": "write",
+      "mutates": true,
+      "used_by": [
+        "§2.1"
+      ]
+    },
+    {
+      "name": "snow_core_record_add",
+      "gate": "write",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "§2.2",
+        "VALIDATION-TESTS",
+        "developer"
+      ]
+    },
+    {
+      "name": "snow_core_record_modify",
+      "gate": "write",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "VALIDATION-TESTS",
+        "developer"
+      ]
+    },
+    {
+      "name": "snow_core_record_read",
+      "gate": "none",
+      "mutates": false,
+      "used_by": [
+        "VALIDATION-TESTS",
+        "developer"
+      ]
+    },
+    {
+      "name": "snow_core_record_remove",
+      "gate": "write",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "VALIDATION-TESTS"
+      ]
+    },
+    {
+      "name": "snow_core_records_query",
+      "gate": "none",
+      "mutates": false,
+      "used_by": [
+        "§2.2",
+        "VALIDATION-TESTS",
+        "developer",
+        "technical-designer"
+      ]
+    },
+    {
+      "name": "snow_core_status_read",
+      "gate": "none",
+      "mutates": false,
+      "used_by": [
+        "/snowarch status",
+        "/snowarch doctor",
+        "bootstrap"
+      ]
+    },
+    {
+      "name": "snow_core_table_schema_read",
+      "gate": "none",
+      "mutates": false,
+      "used_by": [
+        "technical-designer",
+        "cmdb-csdm-specialist"
+      ]
+    },
+    {
+      "name": "snow_deploy_background_script_exec",
+      "gate": "scripting",
+      "mutates": true,
+      "used_by": [
+        "§2.2"
+      ]
+    },
+    {
+      "name": "snow_disco_table_discover",
+      "gate": "none",
+      "mutates": false,
+      "used_by": [
+        "technical-designer",
+        "migration-specialist"
+      ]
+    },
+    {
+      "name": "snow_flow_flow_action_add",
+      "gate": "scripting",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "flow-designer-specialist"
+      ]
+    },
+    {
+      "name": "snow_flow_flow_add",
+      "gate": "write",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "flow-designer-specialist"
+      ]
+    },
+    {
+      "name": "snow_fluent_script_exec",
+      "gate": "scripting",
+      "mutates": true,
+      "used_by": [
+        "§2.2"
+      ]
+    },
+    {
+      "name": "snow_inc_incident_modify",
+      "gate": "write",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "itsm-specialist"
+      ]
+    },
+    {
+      "name": "snow_inc_incident_resolve",
+      "gate": "write",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "itsm-specialist"
+      ]
+    },
+    {
+      "name": "snow_intg_event_register",
+      "gate": "scripting",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "integration-specialist"
+      ]
+    },
+    {
+      "name": "snow_perf_table_completeness_check",
+      "gate": "none",
+      "mutates": false,
+      "used_by": [
+        "performance-scale-specialist",
+        "cmdb-csdm-specialist"
+      ]
+    },
+    {
+      "name": "snow_rpt_aggregate_query_exec",
+      "gate": "none",
+      "mutates": false,
+      "used_by": [
+        "reporting-analytics-specialist",
+        "performance-scale-specialist"
+      ]
+    },
+    {
+      "name": "snow_rpt_report_add",
+      "gate": "write",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "reporting-analytics-specialist"
+      ]
+    },
+    {
+      "name": "snow_rpt_scheduled_job_add",
+      "gate": "write",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "reporting-analytics-specialist"
+      ]
+    },
+    {
+      "name": "snow_scr_business_rule_add",
+      "gate": "scripting",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "developer"
+      ]
+    },
+    {
+      "name": "snow_scr_business_rule_modify",
+      "gate": "scripting",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "developer"
+      ]
+    },
+    {
+      "name": "snow_scr_business_rules_index",
+      "gate": "none",
+      "mutates": false,
+      "used_by": [
+        "developer",
+        "code-reviewer"
+      ]
+    },
+    {
+      "name": "snow_scr_script_include_add",
+      "gate": "scripting",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "developer"
+      ]
+    },
+    {
+      "name": "snow_scr_script_include_modify",
+      "gate": "scripting",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "developer"
+      ]
+    },
+    {
+      "name": "snow_scr_script_include_read",
+      "gate": "none",
+      "mutates": false,
+      "used_by": [
+        "developer",
+        "code-reviewer"
+      ]
+    },
+    {
+      "name": "snow_scr_script_includes_index",
+      "gate": "none",
+      "mutates": false,
+      "used_by": [
+        "developer",
+        "code-reviewer"
+      ]
+    },
+    {
+      "name": "snow_us_active_update_set_ensure",
+      "gate": "scripting",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "§2.2"
+      ]
+    },
+    {
+      "name": "snow_us_capture_target_set",
+      "gate": "write",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "§2.2"
+      ]
+    },
+    {
+      "name": "snow_us_current_update_set_read",
+      "gate": "none",
+      "mutates": false,
+      "used_by": [
+        "§2.2"
+      ]
+    },
+    {
+      "name": "snow_us_update_set_add",
+      "gate": "scripting",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "§2.2"
+      ]
+    },
+    {
+      "name": "snow_us_update_set_preview",
+      "gate": "none",
+      "mutates": false,
+      "used_by": [
+        "§2.2"
+      ]
+    },
+    {
+      "name": "snow_us_update_set_switch",
+      "gate": "scripting",
+      "mutates": true,
+      "used_by": [
+        "§2.1",
+        "§2.2"
+      ]
+    },
+    {
+      "name": "snow_us_update_sets_index",
+      "gate": "none",
+      "mutates": false,
+      "used_by": [
+        "§2.2"
+      ]
+    }
+  ]
+}

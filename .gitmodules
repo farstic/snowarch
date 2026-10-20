@@ -1,0 +1,5 @@
+[submodule "vendor/ServiceNowDocs"]
+	path = vendor/ServiceNowDocs
+	url = https://github.com/ServiceNow/ServiceNowDocs.git
+	branch = australia
+	shallow = true

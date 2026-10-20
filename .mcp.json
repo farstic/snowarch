@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "servicenow": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${CLAUDE_PROJECT_DIR:-.}/packages/snowarch/dist/server.js"
+      ],
+      "env": {
+        "SNOW_STORE": "${SNOW_STORE:-}",
+        "SNOW_LOG_LEVEL": "${SNOW_LOG_LEVEL:-info}"
+      },
+      "timeout": 600000
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "./engine.config.schema.json",
+  "product": "snowarch",
+  "repo": "farstic/snowarch",
+  "cli": "snowarch",
+  "mcp": {
+    "serverKey": "servicenow",
+    "package": "@farstic/snowarch",
+    "packageDir": "packages/snowarch",
+    "permissions": {
+      "allowStyle": "explicit",
+      "askStyle": "ask"
+    }
+  },
+  "floors": {
+    "claudeCode": "2.1.214",
+    "node": "20.0.0",
+    "git": "2.34.1"
+  },
+  "docs": {
+    "family": "australia",
+    "pin": "aa447ce4ea802c880af9dd365a114d3e6eb1cc19",
+    "areasFile": "vendor/docs-areas.txt",
+    "upstream": "https://github.com/ServiceNow/ServiceNowDocs.git"
+  },
+  "roster": {
+    "skills": 29,
+    "agents": 9,
+    "utility": [
+      "snowarch"
+    ]
+  },
+  "licence": {
+    "revocations": {
+      "repo": "farstic/snowarch-licences",
+      "ref": "main",
+      "path": "revocations.json"
+    }
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "name": "@farstic/snowarch",
+  "version": "2.2.1",
+  "description": "ServiceNow MCP server and snowarch CLI — the live-instance half of AI ServiceNow Architect",
+  "main": "dist/server.js",
+  "types": "dist/server.d.ts",
+  "exports": {
+    ".": "./dist/server.js",
+    "./sdk": "./dist/sdk/index.js",
+    "./client": "./dist/servicenow/client.js",
+    "./audit": "./dist/audit/writer.js",
+    "./doctor": "./dist/doctor/index.js",
+    "./probes": "./dist/servicenow/probes.js"
+  },
+  "bin": {
+    "snowarch": "dist/cli/index.js"
+  },
+  "type": "module",
+  "files": [
+    "dist/",
+    ".env.example",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-dist.mjs",
+    "dev": "tsx watch src/server.ts",
+    "lint": "eslint src tests",
+    "lint:fix": "eslint src tests --fix",
+    "pretest": "npm run build",
+    "start": "node dist/server.js",
+    "test": "vitest run --coverage",
+    "test:nocov": "vitest run",
+    "test:e2e": "vitest run tests/e2e/instance-wizard.e2e.test.ts --reporter=default",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json"
+  },
+  "keywords": [
+    "servicenow",
+    "snowarch",
+    "servicenow-ai",
+    "servicenow-agent",
+    "servicenow-automation",
+    "servicenow-developer-tools",
+    "servicenow-integration",
+    "servicenow-api",
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "itsm",
+    "itom",
+    "hrsd",
+    "csm",
+    "secops",
+    "grc",
+    "cmdb",
+    "now-assist",
+    "atf",
+    "flow-designer",
+    "service-portal",
+    "performance-analytics",
+    "service-catalog",
+    "app-studio",
+    "scoped-app",
+    "ai-agent",
+    "agentic",
+    "typescript",
+    "automation",
+    "byok",
+    "sdk",
+    "servicenow-sdk"
+  ],
+  "author": "Cvetomir Grigorov",
+  "homepage": "https://github.com/farstic/snowarch",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/farstic/snowarch.git"
+  },
+  "bugs": "https://github.com/farstic/snowarch/issues",
+  "license": "BUSL-1.1",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "commander": "^14.0.3",
+    "dotenv": "^16.4.5",
+    "undici": "6.28.1",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.33",
+    "@typescript-eslint/eslint-plugin": "^8.56.0",
+    "@typescript-eslint/parser": "^8.56.0",
+    "@vitest/coverage-v8": "4.0.18",
+    "eslint": "^9.39.3",
+    "globals": "^17.3.0",
+    "selfsigned": "5.5.0",
+    "tsx": "^4.7.0",
+    "typescript": "5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

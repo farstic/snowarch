@@ -1,0 +1,6 @@
+{
+  "_rule": "The registration names the OLD installers wrote, and nothing else. This file is data for a detector: E-23 matches an entry in ~/.claude.json against it, and a check body that spelled these names would be a finding in the repository's own retired-name ratchet (L03) — which is why they live here and this path is listed in POLICY_FILES and in tests/no-legacy-names.test.mjs. A name is added here only when an installer really wrote it; the current key is engine.config.json's mcp.serverKey and is deliberately absent, because an entry under that name is a registration this product made.",
+  "names": ["servicenow-mcp", "nowaikit"],
+  "pathSegment": "snow-mcp",
+  "source": "scripts/legacy/setup.sh and the committed CLAUDE.md of the previous engine (00 P-34)"
+}

@@ -1,0 +1,60 @@
+# per-checkout state — never committed (01 §3, §7; D-04)
+.local/
+clients/
+deliverables/
+memory/
+.env
+.env.*
+!.env.example
+.claude/settings.local.json
+
+# Audit / internal reports — may quote live instance data (URLs, sys_ids). Local-only, never pushed.
+# KEPT from the engine's .gitignore, which ARC-01-S07's exact list would otherwise have dropped:
+# nothing writes this directory today, but it was ignored for exactly the reason this story exists,
+# and re-adding it later is a decision someone has to remember to make. See the S07 report.
+reports/
+
+# dependencies and build output
+node_modules/
+# `node_modules/` with a trailing slash matches DIRECTORIES ONLY — it does not ignore a SYMLINK
+# named node_modules, which pnpm and some yarn layouts create. Both forms are listed on purpose
+# (ARC-01-S05, measured: `git status` reported `?? node_modules` with only the slashed form).
+node_modules
+# packages/snowarch/dist/ is NOT ignored (ARC-04-S13). The compiled server is committed so that
+# a clone plus `npm ci` is a runnable live install with no build step — and CI rebuilds it and
+# diffs it, which is the only thing that makes a committed build artefact honest. Never edit it
+# by hand: run `node scripts/build-dist.mjs`.
+*.tsbuildinfo
+coverage/
+
+# OS and editors
+.DS_Store
+**/.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ARC-10-S03 removed `.backups/`, `scratchpad/`, `diagram-preview/` and `node-compile-cache/`:
+# nothing in this product writes any of them. `node-compile-cache` is Node 22+'s, and it goes under
+# TMPDIR rather than the checkout — a line ignoring it here was ignoring a path that never appears.
+.t01/
+
+# ARC-04-S12: the doctor's criterion-5 test copies dist/ here so it can edit contract.json
+# without racing tests/contract.test.ts, which reads the real one in a parallel worker. Removed
+# in a finally; listed so a killed run leaves nothing tracked.
+packages/snowarch/.tmp-doctor-dist/
+
+# Python's bytecode cache. `scripts/acceptance/tag-controls.py` is IMPORTABLE BY DESIGN — its
+# controls are data, and re-verifying every anchor against a tree is a read of `CONTROLS` rather
+# than an hour-long run — and an import is what writes one of these. A hand-run script alone never
+# does, which is why the two older `.py` files here never needed the rule.
+__pycache__/
+*.pyc
+
+# A doctor report at the root is a TRANSIENT INPUT, never an asset. `docs/CONTRIBUTING.md` spells the
+# snapshot recipe as `doctor-snapshot.mjs --in doctor.json`, and CI writes `doctor.json`,
+# `doctor-quick.json` and `doctor-ps.json` per platform — so the obvious thing to do locally is
+# produce one here. A committed one sat at this root for a fortnight, read by nothing, and turned the
+# documented `--write` into a command that silently dropped three checks from a snapshot.
+/doctor.json
+/doctor-*.json

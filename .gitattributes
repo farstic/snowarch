@@ -1,0 +1,22 @@
+* text=auto eol=lf
+*.mjs text eol=lf
+*.mts text eol=lf
+*.md  text eol=lf
+*.json text eol=lf
+*.sh  text eol=lf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.png binary
+*.drawio text eol=lf
+*.svg text eol=lf
+
+# The committed build output (ARC-04-S13).
+#   linguist-generated  collapses it in GitHub review, so a source PR's real diff stays readable
+#   text eol=lf         a Windows checkout must not rewrite every line, or the dist-check job
+#                       would go red on that platform for line endings alone
+# `merge=ours` is deliberately NOT set: it would resolve every dist/ conflict silently in favour
+# of the current branch, which is how a stale artefact gets merged without anyone seeing it.
+packages/snowarch/dist/** linguist-generated=true text eol=lf
+# The launcher has no extension, so the `*.sh` rule does not reach it — and a CRLF here is a
+# `/bin/sh^M: bad interpreter` on every Unix machine that clones from a Windows checkout.
+snowarch text eol=lf

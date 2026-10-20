@@ -1,0 +1,2646 @@
+{
+  "contractVersion": 1,
+  "product": "snowarch",
+  "version": "2.2.1",
+  "server": {
+    "suggestedName": "servicenow"
+  },
+  "flags": [
+    {
+      "name": "WRITE_ENABLED",
+      "exactString": "true",
+      "absentMeans": false,
+      "requires": []
+    },
+    {
+      "name": "CMDB_WRITE_ENABLED",
+      "exactString": "true",
+      "absentMeans": false,
+      "requires": [
+        "WRITE_ENABLED"
+      ]
+    },
+    {
+      "name": "SCRIPTING_ENABLED",
+      "exactString": "true",
+      "absentMeans": false,
+      "requires": [
+        "WRITE_ENABLED"
+      ]
+    },
+    {
+      "name": "ATF_ENABLED",
+      "exactString": "true",
+      "absentMeans": false,
+      "requires": []
+    },
+    {
+      "name": "NOW_ASSIST_ENABLED",
+      "exactString": "true",
+      "absentMeans": false,
+      "requires": []
+    },
+    {
+      "name": "FLUENT_ENABLED",
+      "exactString": "true",
+      "absentMeans": false,
+      "requires": []
+    }
+  ],
+  "gates": {
+    "none": [],
+    "write": [
+      "WRITE_ENABLED"
+    ],
+    "cmdb_write": [
+      "WRITE_ENABLED",
+      "CMDB_WRITE_ENABLED"
+    ],
+    "scripting": [
+      "WRITE_ENABLED",
+      "SCRIPTING_ENABLED"
+    ],
+    "atf": [
+      "ATF_ENABLED"
+    ],
+    "now_assist": [
+      "NOW_ASSIST_ENABLED"
+    ],
+    "fluent": {
+      "requires": [
+        "FLUENT_ENABLED"
+      ],
+      "requiresWriteWhenMutating": true
+    }
+  },
+  "errorCodes": [
+    {
+      "code": "ATF_NOT_ENABLED",
+      "meaning": "The instance's preset does not enable ATF_ENABLED.",
+      "remedy": "raise the preset; a `prod` instance additionally needs `--ack-prod`",
+      "command": "<cli> instance set-preset <label> pdi-developer",
+      "showInRule": true
+    },
+    {
+      "code": "ATTACHMENT_UPLOAD_FAILED",
+      "meaning": "The attachment was not stored.",
+      "remedy": "check the file size and that the target record exists",
+      "showInRule": false
+    },
+    {
+      "code": "AUTHENTICATION_FAILED",
+      "meaning": "The instance rejected the credentials — wrong, expired, or the account is locked.",
+      "remedy": "If a ServiceNow tool returns AUTHENTICATION_FAILED: stop immediately. Do not retry that call or make any other call to the same instance — repeated failed logins can lock the account. Tell the user to run <cli> instance test <label> and, if it fails, <cli> instance set-credentials <label>. Continue only after the user says the credentials were fixed — and then call snow_core_instances_reload before you retry, because this server still holds the credentials it read at startup and a retry without it is a second failed login",
+      "showInRule": true,
+      "httpStatus": 401
+    },
+    {
+      "code": "BATCH_FAILED",
+      "meaning": "One or more requests in the batch failed.",
+      "remedy": "the message lists which",
+      "showInRule": false
+    },
+    {
+      "code": "CMDB_WRITE_NOT_ENABLED",
+      "meaning": "The instance's preset does not enable CMDB_WRITE_ENABLED.",
+      "remedy": "raise the preset; a `prod` instance additionally needs `--ack-prod`",
+      "command": "<cli> instance set-preset <label> pdi-developer",
+      "showInRule": true
+    },
+    {
+      "code": "CONNECTION_REFUSED",
+      "meaning": "The instance refused the connection and no proxy is configured.",
+      "remedy": "`<host>` refused the connection — the instance may be hibernated (PDIs sleep after inactivity: wake it at developer.servicenow.com) or blocked by a firewall. Check the URL and its port too",
+      "showInRule": true
+    },
+    {
+      "code": "CONNECTION_TIMEOUT",
+      "meaning": "The connection timed out with no proxy configured.",
+      "remedy": "no answer from `<host>` in time. If this network needs a proxy, set `HTTPS_PROXY=http://proxy:port` (and `NO_PROXY` for internal hosts) and run again. An idle PDI may be hibernating — wake it at developer.servicenow.com",
+      "showInRule": true
+    },
+    {
+      "code": "CREATE_FAILED",
+      "meaning": "The instance refused the create.",
+      "remedy": "the message carries the instance response",
+      "showInRule": false
+    },
+    {
+      "code": "DELETE_ACL_DENIED",
+      "meaning": "The account lacks delete access to that table. This is not a flag.",
+      "remedy": "use an account with the role",
+      "showInRule": false
+    },
+    {
+      "code": "DELETE_CONSTRAINT",
+      "meaning": "Another record references it.",
+      "remedy": "remove the reference first",
+      "showInRule": false
+    },
+    {
+      "code": "DELETE_FAILED",
+      "meaning": "The instance refused the delete.",
+      "remedy": "the message carries the instance response",
+      "showInRule": false
+    },
+    {
+      "code": "DELETE_NOT_FOUND",
+      "meaning": "Nothing exists at that sys_id to delete.",
+      "remedy": "check the sys_id",
+      "showInRule": false
+    },
+    {
+      "code": "DNS_FAILURE",
+      "meaning": "The instance host name did not resolve (`ENOTFOUND`, `EAI_AGAIN`).",
+      "remedy": "the name `<host>` does not resolve. Check the instance name first — a typo is the usual cause; on a corporate network the name may resolve only over VPN, or only through a proxy, so set `HTTPS_PROXY` if there is one (there is one — `<proxyVar>=<proxy>` — and a proxy does not resolve names for you unless the request goes through it, which makes a wrong name the likelier cause)",
+      "showInRule": true
+    },
+    {
+      "code": "ECONNREFUSED",
+      "meaning": "A refused connection surfaced with the Node identifier.",
+      "remedy": "as `CONNECTION_REFUSED`: check the URL, the port and any proxy",
+      "showInRule": false
+    },
+    {
+      "code": "ENOTFOUND",
+      "meaning": "A DNS failure surfaced with the Node identifier rather than the classified code.",
+      "remedy": "as `DNS_FAILURE`: check the host in the store",
+      "showInRule": false
+    },
+    {
+      "code": "ENV_REQUIRED",
+      "meaning": "The environment could not be proposed and none was given, in a run that cannot ask.",
+      "remedy": "pass `--env pdi|dev|test|prod`. Only `devNNNNN.service-now.com` hosts are recognised as PDIs, and the environment decides the preset a write is checked against — guessing it is the one thing this wizard will not do",
+      "command": "<cli> instance add <label> --url <url> --env <pdi|dev|test|prod> --yes",
+      "showInRule": false
+    },
+    {
+      "code": "ETIMEDOUT",
+      "meaning": "A timeout surfaced with the Node identifier.",
+      "remedy": "as `CONNECTION_TIMEOUT`",
+      "showInRule": false
+    },
+    {
+      "code": "FIELD_NOT_STORED",
+      "meaning": "A WARNING on a write that succeeded, not an error: a field the tool sent is not shown as set in the platform's response (for `snow_scr_business_rule_add`: `filter_condition` or `advanced`), or, for the ATF authoring tools, in the record read back after the write — a step input that no row attaches to the step included. The record exists without it — a Business Rule without its filter runs on every matching operation. It arrives as `warnings[].code` on the tool's result.",
+      "remedy": "read the record back; if the field is not set, set it with a modify rather than adding the record again, and if the record is active set `active` to false first. If it is set, the response did not echo it: the column names are not documented in the bundled corpus, so check them on the instance",
+      "showInRule": true,
+      "warning": true
+    },
+    {
+      "code": "FLAG_DEPENDENCY_VIOLATION",
+      "meaning": "A flag that requires `WRITE_ENABLED` is on while `WRITE_ENABLED` is off. The tools gated on it are refused at run time and the refusal names WRITE first, so the entry promises a capability it cannot deliver.",
+      "remedy": "decide which one was meant: turn WRITE on, or turn the dependent flag off. Neither is guessable from the store, so this is never repaired automatically",
+      "command": "<cli> instance set-preset <label> <preset>",
+      "showInRule": false
+    },
+    {
+      "code": "FLAGS_INCOMPLETE",
+      "meaning": "A store entry does not state all six capability flags. An absent flag is off, so the entry works — but nobody can tell an intended `false` from a forgotten one, and the next preset change starts from a guess.",
+      "remedy": "state every flag explicitly by re-applying a preset — the review screen shows what changes before anything is written",
+      "command": "<cli> instance set-preset <label> <preset>",
+      "showInRule": false
+    },
+    {
+      "code": "FLUENT_ERROR",
+      "meaning": "The SDK ran and failed.",
+      "remedy": "the message carries the SDK output",
+      "showInRule": false
+    },
+    {
+      "code": "FLUENT_NOT_ENABLED",
+      "meaning": "The instance's preset does not enable FLUENT_ENABLED.",
+      "remedy": "raise the preset; a `prod` instance additionally needs `--ack-prod`",
+      "command": "<cli> instance set-preset <label> full",
+      "showInRule": true
+    },
+    {
+      "code": "FLUENT_NOT_INSTALLED",
+      "meaning": "The ServiceNow SDK is not on `PATH`.",
+      "remedy": "install it globally — the doctor checks `PATH`, so a checkout-local install would pass here and fail there",
+      "command": "npm i -g @servicenow/sdk",
+      "showInRule": true
+    },
+    {
+      "code": "INSTANCE_NOT_LOADED",
+      "meaning": "The instance is in the store but was not loaded, and the store carries the reason.",
+      "remedy": "read the reason in the instance listing; a `prod` instance without `prodWriteAck` needs the acknowledgement",
+      "command": "<cli> instance list",
+      "showInRule": true
+    },
+    {
+      "code": "INSTANCE_REFUSED",
+      "meaning": "The instance's own rule — a data policy or a business rule — refused the record. This is not a role.",
+      "remedy": "the instance's own rule refused the record — read the message, correct the fields it names and send the write again, as a new write with its own approval; do not change roles",
+      "showInRule": true,
+      "httpStatus": 403
+    },
+    {
+      "code": "INSTANCE_UNUSABLE",
+      "meaning": "The store entry parsed but no client could be built from it.",
+      "remedy": "the message says which field is impossible",
+      "showInRule": false
+    },
+    {
+      "code": "INSUFFICIENT_PRIVILEGES",
+      "meaning": "The account is authenticated but lacks a ServiceNow role for that table or operation. This is not a flag.",
+      "remedy": "The credentials are valid but the account lacks a role for this table. Report the tool, the table and the roles the preset needs (see docs/TROUBLESHOOTING.md); do not switch instances or retry with another tool to work around it",
+      "showInRule": true,
+      "httpStatus": 403
+    },
+    {
+      "code": "INTEGRITY_NOT_VERIFIED",
+      "meaning": "This checkout's own files are not the signed release's, and they could not be restored: no signed manifest is held, it does not verify, it is another release's, there is no tag to restore from, or the restore failed. Every tool is refused, as for a refused licence. A change the product could restore was restored, and is not this.",
+      "remedy": "Run <cli> doctor: its Integrity line names the reason. <cli> licence check --refresh fetches a missing manifest; a checkout that cannot be restored is reinstalled from a signed release tag. A running Claude Code session keeps what its server read at start, so restart it afterwards",
+      "command": "<cli> doctor",
+      "showInRule": false
+    },
+    {
+      "code": "INVALID_REQUEST",
+      "meaning": "An argument is missing or malformed.",
+      "remedy": "the message names the argument",
+      "showInRule": false
+    },
+    {
+      "code": "LABEL_EXISTS",
+      "meaning": "An instance with that label is already in the store.",
+      "remedy": "use `instance set-credentials` or `instance set-preset` to change it, `instance remove` to delete it, or `--replace` to overwrite it",
+      "command": "<cli> instance add <label> --url <url> --env <env> --replace",
+      "showInRule": false
+    },
+    {
+      "code": "LABEL_NOT_FOUND",
+      "meaning": "No instance with that label is in the store this checkout resolves.",
+      "remedy": "run `instance list` to see the labels this checkout has, or `instance add <label>` to add one",
+      "command": "<cli> instance list",
+      "showInRule": false
+    },
+    {
+      "code": "LEGACY_STORE_NOT_FOUND",
+      "meaning": "There is no snow-mcp 1.x store at the path the import was pointed at.",
+      "remedy": "check the path, or pass `--path <file>` if the legacy store was kept somewhere else; `<cli> doctor` reports where it looked",
+      "command": "<cli> instance import --from-legacy --path <file> --dry-run",
+      "showInRule": false
+    },
+    {
+      "code": "LEGACY_STORE_UNREADABLE",
+      "meaning": "The legacy store is not JSON this reader can parse.",
+      "remedy": "open it and check it is a complete JSON object; a half-written file from an interrupted 1.x session cannot be migrated and its instances are re-added with `instance add`",
+      "showInRule": false
+    },
+    {
+      "code": "LICENCE_NOT_VALID",
+      "meaning": "This checkout's licence does not cover the call: it is missing, invalid, expired or revoked, or it is a design-only licence and the server is live. Every tool is refused, the instance-free ones included, on every build.",
+      "remedy": "Run <cli> licence check to see why, then install a valid licence as .local/licence.json. A running Claude Code session keeps what it read at start, so restart it afterwards",
+      "command": "<cli> licence check",
+      "showInRule": false
+    },
+    {
+      "code": "NETWORK_ERROR",
+      "meaning": "The instance was unreachable and the cause did not match a more specific classification.",
+      "remedy": "the message carries the underlying cause",
+      "showInRule": false
+    },
+    {
+      "code": "NO_INSTANCE_CONFIGURED",
+      "meaning": "The server is running and healthy; it has no instance to talk to. It stays up on purpose — an unconfigured checkout used to exit at start-up, so the moment you most needed the server to explain itself was the moment it was gone. Five tools still work: status, capabilities, reload, the instance listing and the current instance.",
+      "remedy": "add an instance, then call the reload tool — Claude Code does not need restarting, the server re-advertises its catalogue in the same session",
+      "command": "/snowarch setup-instance",
+      "showInRule": true
+    },
+    {
+      "code": "NOT_FOUND",
+      "meaning": "The record or table does not exist on this instance.",
+      "remedy": "check the sys_id and the table name",
+      "showInRule": false,
+      "httpStatus": 404
+    },
+    {
+      "code": "NOT_IMPLEMENTED",
+      "meaning": "The surface was removed.",
+      "remedy": "the message names what replaced it",
+      "showInRule": false
+    },
+    {
+      "code": "NOW_ASSIST_ERROR",
+      "meaning": "A Now Assist call failed.",
+      "remedy": "the message carries the instance response; check the Now Assist licence on the instance",
+      "showInRule": false
+    },
+    {
+      "code": "NOW_ASSIST_NOT_ENABLED",
+      "meaning": "The instance's preset does not enable NOW_ASSIST_ENABLED.",
+      "remedy": "raise the preset; a `prod` instance additionally needs `--ack-prod`",
+      "command": "<cli> instance set-preset <label> full",
+      "showInRule": true
+    },
+    {
+      "code": "OAUTH_CLIENT_INVALID",
+      "meaning": "The OAuth client id or secret was rejected.",
+      "remedy": "check them against the Application Registry entry on the instance",
+      "showInRule": false
+    },
+    {
+      "code": "OAUTH_ROPC_DISABLED",
+      "meaning": "The instance has the OAuth password grant disabled.",
+      "remedy": "use basic authentication, or have an administrator enable the grant type",
+      "showInRule": false
+    },
+    {
+      "code": "PROD_WRITE_NOT_ACKNOWLEDGED",
+      "meaning": "The instance is tagged `environment: prod` and holds a write preset without `prodWriteAck: true`.",
+      "remedy": "A production instance is capped at read-only. Do not suggest editing the store; the user raises it with <cli> instance set-preset <label> <preset> --ack-prod in their terminal",
+      "showInRule": true
+    },
+    {
+      "code": "PROXY_AUTH_REQUIRED",
+      "meaning": "The proxy answered 407: it wants credentials before it will forward the request.",
+      "remedy": "the proxy is asking for credentials: put them in the proxy URL (`HTTPS_PROXY=http://user:pass@proxy:port`). NTLM and Kerberos proxies are not supported — the request has to reach the instance through a proxy that accepts basic credentials",
+      "showInRule": true,
+      "httpStatus": 407
+    },
+    {
+      "code": "PROXY_UNREACHABLE",
+      "meaning": "A proxy variable is set and nothing is listening there, or the connection to it timed out.",
+      "remedy": "the proxy `<proxyVar>=<proxy>` did not connect to `<host>`. Check the proxy address and credentials, and that `<host>` is not excluded by `NO_PROXY` — or unset the variable if you are not behind a proxy. The proxy is printed with any credentials masked",
+      "showInRule": true
+    },
+    {
+      "code": "QUERY_FAILED",
+      "meaning": "The instance refused the query.",
+      "remedy": "the message carries the instance response",
+      "showInRule": false
+    },
+    {
+      "code": "RATE_LIMITED",
+      "meaning": "The instance is throttling this account.",
+      "remedy": "retry later; reduce `maxRecords` or the call rate",
+      "showInRule": false,
+      "httpStatus": 429
+    },
+    {
+      "code": "REQUEST_FAILED",
+      "meaning": "The request failed and the instance response is the only information there is.",
+      "remedy": "the message carries that response",
+      "showInRule": false
+    },
+    {
+      "code": "SCHEMA_NOT_CACHED",
+      "meaning": "A tool needed a table schema that has not been read this session.",
+      "remedy": "call the schema read tool for that table first",
+      "showInRule": false
+    },
+    {
+      "code": "SCRIPT_FAILED",
+      "meaning": "The script ran and errored.",
+      "remedy": "the message carries the instance output",
+      "showInRule": false
+    },
+    {
+      "code": "SCRIPTING_NOT_ENABLED",
+      "meaning": "The instance's preset does not enable SCRIPTING_ENABLED.",
+      "remedy": "raise the preset; a `prod` instance additionally needs `--ack-prod`",
+      "command": "<cli> instance set-preset <label> pdi-developer",
+      "showInRule": true
+    },
+    {
+      "code": "STORE_IN_CLOUD_SYNC_FOLDER",
+      "meaning": "this checkout is under <provider> (<root>). File mode 0600 does not stop synchronisation — the credential store would be uploaded to that service.",
+      "remedy": "move the checkout outside the synced folder, or keep credentials in the global store with `--global` (<global> is not synced by default)",
+      "showInRule": false
+    },
+    {
+      "code": "STORE_NOT_FOUND",
+      "meaning": "`SNOW_STORE` names a file that is not there — an explicit override is never a fallback.",
+      "remedy": "correct the variable, unset it, or create the store",
+      "command": "/snowarch setup-instance",
+      "showInRule": false
+    },
+    {
+      "code": "STORE_PERMISSIONS_TOO_OPEN",
+      "meaning": "The store holds a password and is group/world-readable, or sits in a group/world-writable directory (D-04).",
+      "remedy": "tighten the mode; on Windows the check is skipped and the doctor notes it instead",
+      "command": "chmod 600 .local/instances.json",
+      "showInRule": false
+    },
+    {
+      "code": "STORE_SCHEMA_INVALID",
+      "meaning": "The store parsed but a field is wrong; the message names its path, for example `instances.pdi.flags.WRITE_ENABLED`.",
+      "remedy": "the message names the field path; correct it in the store",
+      "showInRule": false
+    },
+    {
+      "code": "STORE_SCHEMA_NEWER",
+      "meaning": "The store was written by a NEWER server than this one — a checkout left behind, not a broken file.",
+      "remedy": "upgrade this checkout, rather than editing the store down; a backup can be restored if the newer server wrote one",
+      "command": "<cli> upgrade",
+      "showInRule": true
+    },
+    {
+      "code": "STORE_SCHEMA_OUTDATED",
+      "meaning": "The store was written by an older server and this build does not read that schema. Nothing migrates on load — an explicit command is what rewrites a credential file.",
+      "remedy": "migrate it; a 0600 backup is written first and credential values are never touched",
+      "command": "<cli> store migrate",
+      "showInRule": true
+    },
+    {
+      "code": "STORE_UNREADABLE",
+      "meaning": "The store exists but is not valid JSON.",
+      "remedy": "repair or recreate it; the message names the parse error",
+      "showInRule": false
+    },
+    {
+      "code": "TLS_CA_UNTRUSTED",
+      "meaning": "The certificate was not signed by a CA this machine trusts — normal on a network that intercepts TLS.",
+      "remedy": "the certificate presented for `<host>` is not trusted by Node (issuer: `<issuer>`) — typically a TLS-intercepting gateway, or an expired certificate. Export the gateway root CA as PEM, point `NODE_EXTRA_CA_CERTS` at it for the shell that runs <cli> and in `.claude/settings.local.json` → `env` so the server gets it too, and restart — Node reads it once, at process start. Never `NODE_TLS_REJECT_UNAUTHORIZED=0`: it disables verification for the whole process, which on an intercepting network means trusting the interceptor and every other certificate with it",
+      "command": "export NODE_EXTRA_CA_CERTS=<path to the PEM>",
+      "showInRule": true
+    },
+    {
+      "code": "TLS_CERT_INVALID",
+      "meaning": "The certificate is invalid for reasons other than an untrusted root — expired, or the wrong host.",
+      "remedy": "check the instance URL and the certificate; this is not a CA-trust problem",
+      "showInRule": false
+    },
+    {
+      "code": "UNKNOWN_GATE",
+      "meaning": "Server defect: a tool declares a gate the evaluator does not know.",
+      "remedy": "report it; no user action can help",
+      "showInRule": false
+    },
+    {
+      "code": "UNKNOWN_INSTANCE",
+      "meaning": "No instance in the store carries that label.",
+      "remedy": "the listing prints the labels that exist",
+      "command": "<cli> instance list",
+      "showInRule": false
+    },
+    {
+      "code": "UNKNOWN_TOOL",
+      "meaning": "A retired or misspelled tool name.",
+      "remedy": "use the `snow_*` name from `governance/mcp-protocols.md`; maintainers: `npm run lint:contract`",
+      "showInRule": true
+    },
+    {
+      "code": "UNSUPPORTED_ON_THIS_INSTANCE",
+      "meaning": "The tool is registered, the preset let it through, and the server refused without contacting the instance: the operation has no REST endpoint on any instance. The two script-execution stubs stay registered because removing the names would turn a clear refusal into UNKNOWN_TOOL, which reads as \"you spelled it wrong\" and sends you hunting a typo that is not there. They fail before any HTTP request, so nothing reaches the instance and nothing is half-done.",
+      "remedy": "take the other route: run the script in System Definition > Scripts - Background, or author a Fix Script and run it from the UI. Keep `sys_script_fix.name` to 40 characters — the platform truncates it over REST without an error (see `docs/PLATFORM-NOTES.md` PN-07); a write through this server returns a `VALUE_TRUNCATED` warning",
+      "showInRule": false
+    },
+    {
+      "code": "UPDATE_FAILED",
+      "meaning": "The instance refused the update.",
+      "remedy": "the message carries the instance response",
+      "showInRule": false
+    },
+    {
+      "code": "URL_HAS_CREDENTIALS",
+      "meaning": "The URL embeds a user name or password, which would put a secret in the store URL and in logs.",
+      "remedy": "remove them; the wizard asks for credentials separately",
+      "showInRule": false
+    },
+    {
+      "code": "URL_HAS_PATH",
+      "meaning": "The URL carries a path; only the origin is stored.",
+      "remedy": "drop everything after the host",
+      "showInRule": false
+    },
+    {
+      "code": "URL_INVALID",
+      "meaning": "The value is not a URL the server can parse.",
+      "remedy": "enter it as `https://<host>.service-now.com`",
+      "showInRule": false
+    },
+    {
+      "code": "URL_NOT_HTTPS",
+      "meaning": "The URL is not https. Credentials would cross the network in clear.",
+      "remedy": "use the https form of the same host",
+      "showInRule": false
+    },
+    {
+      "code": "URL_REQUIRED",
+      "meaning": "The wizard needs an instance URL and none was given.",
+      "remedy": "enter the full https URL of the instance; non-interactively pass `--url <origin>` (a URL cannot be proposed)",
+      "showInRule": false
+    },
+    {
+      "code": "VALIDATION_ERROR",
+      "meaning": "An argument is present but not the expected shape.",
+      "remedy": "the message names the argument and the shape",
+      "showInRule": false
+    },
+    {
+      "code": "VALUE_NOT_AS_SENT",
+      "meaning": "A WARNING on a write that succeeded, not an error: a field the tool sent reads back with a different value — neither missing nor a cut prefix — once line endings are normalised (the ATF authoring tools, ARC-09-C95). It names the field, the first differing offset and both lengths, never the values. Also raised when more than one row holds a step input that should be held once.",
+      "remedy": "the record exists with the stored value: read it back and, if that value is wrong, correct it with a modify — do not add it again, which would make a second record",
+      "showInRule": true,
+      "warning": true,
+      "ruleLineWith": "VALUE_TRUNCATED"
+    },
+    {
+      "code": "VALUE_TOO_LONG",
+      "meaning": "A write refused BEFORE it was sent (ARC-09-C97): a string is longer than its column's `max_length`, read fresh from `sys_dictionary` for this write — on the table that defines the column, which for an inherited one is a table it extends. Nothing was written by this write. Lengths are counted in code points, as VALUE_TRUNCATED counts them. When the same call wrote other records first, the error lists them (`details.written`).",
+      "remedy": "shorten the value to at most the stated length and send the write again; records the call already wrote (named in the error) exist, so do not add them again",
+      "showInRule": false
+    },
+    {
+      "code": "VALUE_TRUNCATED",
+      "meaning": "A WARNING on a write that succeeded, not an error: a string appears to have been cut at its column — the platform stored only the first part of it, without refusing. It arrives as `warnings[].code` on the tool's result (or as a note on the error of a tool that failed after it wrote) and names the field, both lengths and a limit. The limit is the dictionary's stated `max_length` when `confirmed` is true, and otherwise the stored length, which is a lower bound; a column defined on a parent table never confirms.",
+      "remedy": "the record exists with the stored value, so modify it with a value of at most `column_limit` characters (when `confirmed` is false that length is only known to fit); do not add it again, which would make a second record. If the record is active, set `active` to false until it is corrected",
+      "showInRule": true,
+      "warning": true
+    },
+    {
+      "code": "WRITE_NOT_ENABLED",
+      "meaning": "The instance's preset does not enable WRITE_ENABLED.",
+      "remedy": "raise the preset; a `prod` instance additionally needs `--ack-prod`",
+      "command": "<cli> instance set-preset <label> pdi-developer",
+      "showInRule": true
+    }
+  ],
+  "tools": [
+    {
+      "name": "snow_agile_epic_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_agile_epic_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_agile_epics_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_agile_scrum_task_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_agile_scrum_task_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_agile_scrum_tasks_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_agile_stories_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_agile_story_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_agile_story_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_ai_agentic_workflow_add",
+      "gate": "now_assist",
+      "mutates": true,
+      "alsoRequires": "write"
+    },
+    {
+      "name": "snow_ai_ai_agent_add",
+      "gate": "now_assist",
+      "mutates": true,
+      "alsoRequires": "write"
+    },
+    {
+      "name": "snow_ai_ai_agent_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ai_ai_agents_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_atf_atf_failure_insight_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_atf_atf_step_add",
+      "gate": "atf",
+      "mutates": true,
+      "alsoRequires": "write"
+    },
+    {
+      "name": "snow_atf_atf_suite_exec",
+      "gate": "atf",
+      "mutates": true
+    },
+    {
+      "name": "snow_atf_atf_suite_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_atf_atf_suite_result_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_atf_atf_suites_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_atf_atf_test_add",
+      "gate": "atf",
+      "mutates": true,
+      "alsoRequires": "write"
+    },
+    {
+      "name": "snow_atf_atf_test_exec",
+      "gate": "atf",
+      "mutates": true
+    },
+    {
+      "name": "snow_atf_atf_test_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_atf_atf_test_results_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_atf_atf_tests_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cat_active_slas_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cat_approval_rule_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_cat_approvals_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cat_catalog_item_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_cat_catalog_item_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_cat_catalog_item_order",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_cat_catalog_item_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cat_catalog_items_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cat_catalog_query",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cat_catalog_ui_policy_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_cat_catalog_variable_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_cat_my_approvals_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cat_request_approve",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_cat_request_reject",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_cat_sla_details_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cfg_get_properties_bulk",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cfg_properties_export",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cfg_properties_import",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_cfg_property_categories_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cfg_property_history_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cfg_property_validate",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cfg_set_properties_bulk",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_cfg_system_properties_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cfg_system_properties_query",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cfg_system_property_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cfg_system_property_remove",
+      "gate": "write",
+      "mutates": true,
+      "table": "sys_properties"
+    },
+    {
+      "name": "snow_cfg_system_property_set",
+      "gate": "write",
+      "mutates": true,
+      "table": "sys_properties"
+    },
+    {
+      "name": "snow_chg_cab_meeting_schedule",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_chg_change_for_approval_submit",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_chg_change_request_add",
+      "gate": "write",
+      "mutates": true,
+      "table": "change_request"
+    },
+    {
+      "name": "snow_chg_change_request_close",
+      "gate": "write",
+      "mutates": true,
+      "table": "change_request"
+    },
+    {
+      "name": "snow_chg_change_request_modify",
+      "gate": "write",
+      "mutates": true,
+      "table": "change_request"
+    },
+    {
+      "name": "snow_chg_change_request_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_chg_change_requests_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cmdb_duplicates_query",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cmdb_orphans_query",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_cmdb_reconcile",
+      "gate": "cmdb_write",
+      "mutates": true
+    },
+    {
+      "name": "snow_cmdb_stale_query",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_active_events_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_analysis_impact",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_capabilities_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_ci_relationship_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_core_cmdb_ci_query",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_cmdb_ci_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_current_instance_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_discovery_scan_exec",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_core_discovery_schedules_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_group_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_health_dashboard_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_instance_switch",
+      "gate": "none",
+      "mutates": false,
+      "sessionMutates": true
+    },
+    {
+      "name": "snow_core_instances_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_instances_reload",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_mid_servers_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_natural_language_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_core_natural_language_query",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_record_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_core_record_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_core_record_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_record_remove",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_core_records_query",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_relationships_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_service_mapping_summary_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_status_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_table_schema_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_core_user_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_csm_csm_account_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_csm_csm_accounts_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_csm_csm_case_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_csm_csm_case_close",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_csm_csm_case_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_csm_csm_case_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_csm_csm_case_sla_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_csm_csm_cases_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_csm_csm_contact_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_csm_csm_contacts_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_csm_csm_products_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_deploy_artifact_clone",
+      "gate": "scripting",
+      "mutates": true
+    },
+    {
+      "name": "snow_deploy_artifact_query",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_deploy_artifact_validate",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_deploy_background_script_exec",
+      "gate": "scripting",
+      "mutates": true,
+      "unsupported": true
+    },
+    {
+      "name": "snow_deploy_cmdb_data_import",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_deploy_data_quality_analyze",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_deploy_deployment_history_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_deploy_deployment_rollback",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_deploy_deployment_validate",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_deploy_solution_package_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_devops_deployment_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_devops_deployment_track",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_devops_deployments_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_devops_devops_change_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_devops_devops_insights_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_devops_devops_pipeline_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_devops_devops_pipelines_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_disco_table_discover",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_flow_action_instances_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_flow_flow_action_add",
+      "gate": "scripting",
+      "mutates": true
+    },
+    {
+      "name": "snow_flow_flow_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_flow_flow_error_log_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_flow_flow_execution_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_flow_flow_executions_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_flow_flow_publish",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_flow_flow_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_flow_flow_test",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_flow_flow_trigger",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_flow_flows_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_flow_process_automation_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_flow_process_automations_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_flow_subflow_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_flow_subflow_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_flow_subflows_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_fluent_build",
+      "gate": "fluent",
+      "mutates": true,
+      "alsoRequires": "write"
+    },
+    {
+      "name": "snow_fluent_explain",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_fluent_init",
+      "gate": "fluent",
+      "mutates": true,
+      "alsoRequires": "write"
+    },
+    {
+      "name": "snow_fluent_query",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_fluent_request_batch",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_fluent_script_exec",
+      "gate": "scripting",
+      "mutates": true,
+      "unsupported": true
+    },
+    {
+      "name": "snow_fluent_validate",
+      "gate": "fluent",
+      "mutates": false
+    },
+    {
+      "name": "snow_hr_hr_case_activity_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_hr_hr_case_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_hr_hr_case_close",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_hr_hr_case_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_hr_hr_case_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_hr_hr_cases_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_hr_hr_document_templates_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_hr_hr_lifecycle_events_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_hr_hr_profile_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_hr_hr_profile_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_hr_hr_service_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_hr_hr_services_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_hr_hr_task_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_hr_hr_tasks_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_hr_offboarding_case_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_hr_onboarding_case_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_inc_comment_annotate",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_inc_incident_add",
+      "gate": "write",
+      "mutates": true,
+      "table": "incident"
+    },
+    {
+      "name": "snow_inc_incident_close",
+      "gate": "write",
+      "mutates": true,
+      "table": "incident"
+    },
+    {
+      "name": "snow_inc_incident_modify",
+      "gate": "write",
+      "mutates": true,
+      "table": "incident"
+    },
+    {
+      "name": "snow_inc_incident_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_inc_incident_resolve",
+      "gate": "write",
+      "mutates": true,
+      "table": "incident"
+    },
+    {
+      "name": "snow_inc_work_note_annotate",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_intg_credential_aliases_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_intg_data_sources_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_intg_event_fire",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_intg_event_log_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_intg_event_register",
+      "gate": "scripting",
+      "mutates": true
+    },
+    {
+      "name": "snow_intg_event_registry_entry_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_intg_event_registry_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_intg_import_set_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_intg_import_set_row_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_intg_import_sets_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_intg_oauth_applications_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_intg_rest_message_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_intg_rest_message_functions_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_intg_rest_message_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_intg_rest_messages_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_intg_transform_field_maps_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_intg_transform_map_exec",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_intg_transform_map_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_intg_transform_maps_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_itam_asset_add",
+      "gate": "write",
+      "mutates": true,
+      "table": "alm_asset"
+    },
+    {
+      "name": "snow_itam_asset_contracts_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_itam_asset_lifecycle_track",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_itam_asset_modify",
+      "gate": "write",
+      "mutates": true,
+      "table": "alm_asset"
+    },
+    {
+      "name": "snow_itam_asset_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_itam_asset_retire",
+      "gate": "write",
+      "mutates": true,
+      "table": "alm_asset"
+    },
+    {
+      "name": "snow_itam_assets_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_itam_license_compliance_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_itam_license_optimization_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_itam_software_licenses_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_kb_knowledge_article_add",
+      "gate": "write",
+      "mutates": true,
+      "table": "kb_knowledge"
+    },
+    {
+      "name": "snow_kb_knowledge_article_modify",
+      "gate": "write",
+      "mutates": true,
+      "table": "kb_knowledge"
+    },
+    {
+      "name": "snow_kb_knowledge_article_publish",
+      "gate": "write",
+      "mutates": true,
+      "table": "kb_knowledge"
+    },
+    {
+      "name": "snow_kb_knowledge_article_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_kb_knowledge_article_retire",
+      "gate": "write",
+      "mutates": true,
+      "table": "kb_knowledge"
+    },
+    {
+      "name": "snow_kb_knowledge_bases_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_kb_knowledge_query",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ml_anomalies_detect",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ml_anomaly_detector_train",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_ml_auto_categorize",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ml_change_risk_predict",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ml_change_risk_train",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_ml_incident_classifier_train",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_ml_incidents_forecast",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ml_model_evaluate",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ml_model_training_history_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ml_process_optimization_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ml_similar_incidents_query",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ml_virtual_agent_nlu_exec",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_mob_mobile_analytics_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_mob_mobile_app_config_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_mob_mobile_app_config_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_mob_mobile_app_configs_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_mob_mobile_applet_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_mob_mobile_applets_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_mob_mobile_layout_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_mob_mobile_layouts_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_mob_offline_sync_configure",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_mob_push_notification_send",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_na_agentic_playbook_trigger",
+      "gate": "now_assist",
+      "mutates": true
+    },
+    {
+      "name": "snow_na_ai_query",
+      "gate": "now_assist",
+      "mutates": false
+    },
+    {
+      "name": "snow_na_incident_categorize",
+      "gate": "now_assist",
+      "mutates": false
+    },
+    {
+      "name": "snow_na_ms_copilot_topics_read",
+      "gate": "now_assist",
+      "mutates": false
+    },
+    {
+      "name": "snow_na_nlq_query",
+      "gate": "now_assist",
+      "mutates": false
+    },
+    {
+      "name": "snow_na_pi_models_read",
+      "gate": "now_assist",
+      "mutates": false
+    },
+    {
+      "name": "snow_na_resolution_suggest",
+      "gate": "now_assist",
+      "mutates": false
+    },
+    {
+      "name": "snow_na_summary_generate",
+      "gate": "now_assist",
+      "mutates": false
+    },
+    {
+      "name": "snow_na_virtual_agent_topics_read",
+      "gate": "now_assist",
+      "mutates": false
+    },
+    {
+      "name": "snow_na_work_notes_generate",
+      "gate": "now_assist",
+      "mutates": false
+    },
+    {
+      "name": "snow_nas_now_assist_skill_add",
+      "gate": "now_assist",
+      "mutates": true,
+      "alsoRequires": "write"
+    },
+    {
+      "name": "snow_nas_now_assist_skill_read",
+      "gate": "now_assist",
+      "mutates": false
+    },
+    {
+      "name": "snow_nas_now_assist_skill_test",
+      "gate": "now_assist",
+      "mutates": false
+    },
+    {
+      "name": "snow_nas_now_assist_skills_index",
+      "gate": "now_assist",
+      "mutates": false
+    },
+    {
+      "name": "snow_ntf_attachment_metadata_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ntf_attachment_remove",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_ntf_attachment_upload",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_ntf_attachments_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ntf_email_log_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ntf_email_logs_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ntf_email_templates_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ntf_emergency_broadcast_send",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_ntf_notification_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_ntf_notification_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_ntf_notification_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ntf_notification_schedule",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_ntf_notification_subscriptions_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ntf_notifications_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_orch_playbook_add",
+      "gate": "now_assist",
+      "mutates": true,
+      "alsoRequires": "write"
+    },
+    {
+      "name": "snow_orch_playbook_exec",
+      "gate": "now_assist",
+      "mutates": true
+    },
+    {
+      "name": "snow_orch_playbooks_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_perf_dashboard_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_perf_dashboard_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_perf_homepages_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_perf_pa_breakdowns_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_perf_pa_dashboard_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_perf_pa_dashboards_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_perf_pa_indicator_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_perf_pa_indicators_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_perf_pa_job_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_perf_pa_jobs_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_perf_pa_scorecard_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_perf_pa_time_series_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_perf_record_counts_compare",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_perf_table_completeness_check",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_perf_table_record_count_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_portal_portal_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_portal_portal_page_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_portal_portal_page_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_portal_portal_pages_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_portal_portal_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_portal_portal_theme_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_portal_portal_themes_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_portal_portal_widget_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_portal_portal_widget_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_portal_portal_widget_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_portal_portal_widgets_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_portal_portals_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_portal_ux_app_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_portal_ux_apps_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_portal_ux_pages_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_portal_widget_instances_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_prb_problem_add",
+      "gate": "write",
+      "mutates": true,
+      "table": "problem"
+    },
+    {
+      "name": "snow_prb_problem_modify",
+      "gate": "write",
+      "mutates": true,
+      "table": "problem"
+    },
+    {
+      "name": "snow_prb_problem_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_prb_problem_resolve",
+      "gate": "write",
+      "mutates": true,
+      "table": "problem"
+    },
+    {
+      "name": "snow_rpt_aggregate_query_exec",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_rpt_job_run_history_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_rpt_kpi_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_rpt_performance_analytics_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_rpt_query_trend",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_rpt_report_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_rpt_report_data_export",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_rpt_report_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_rpt_report_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_rpt_reports_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_rpt_scheduled_job_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_rpt_scheduled_job_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_rpt_scheduled_job_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_rpt_scheduled_job_trigger",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_rpt_scheduled_jobs_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_rpt_scheduled_report_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_rpt_sys_log_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_scr_acl_add",
+      "gate": "scripting",
+      "mutates": true,
+      "table": "sys_security_acl"
+    },
+    {
+      "name": "snow_scr_acl_modify",
+      "gate": "scripting",
+      "mutates": true,
+      "table": "sys_security_acl"
+    },
+    {
+      "name": "snow_scr_acl_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_scr_acls_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_scr_business_rule_add",
+      "gate": "scripting",
+      "mutates": true,
+      "table": "sys_script"
+    },
+    {
+      "name": "snow_scr_business_rule_modify",
+      "gate": "scripting",
+      "mutates": true,
+      "table": "sys_script"
+    },
+    {
+      "name": "snow_scr_business_rule_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_scr_business_rules_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_scr_changeset_commit",
+      "gate": "scripting",
+      "mutates": true
+    },
+    {
+      "name": "snow_scr_changeset_publish",
+      "gate": "scripting",
+      "mutates": true
+    },
+    {
+      "name": "snow_scr_changeset_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_scr_changesets_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_scr_client_script_add",
+      "gate": "scripting",
+      "mutates": true,
+      "table": "sys_script_client"
+    },
+    {
+      "name": "snow_scr_client_script_modify",
+      "gate": "scripting",
+      "mutates": true,
+      "table": "sys_script_client"
+    },
+    {
+      "name": "snow_scr_client_script_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_scr_client_scripts_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_scr_script_include_add",
+      "gate": "scripting",
+      "mutates": true,
+      "table": "sys_script_include"
+    },
+    {
+      "name": "snow_scr_script_include_modify",
+      "gate": "scripting",
+      "mutates": true,
+      "table": "sys_script_include"
+    },
+    {
+      "name": "snow_scr_script_include_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_scr_script_includes_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_scr_ui_action_add",
+      "gate": "scripting",
+      "mutates": true,
+      "table": "sys_ui_action"
+    },
+    {
+      "name": "snow_scr_ui_action_modify",
+      "gate": "scripting",
+      "mutates": true,
+      "table": "sys_ui_action"
+    },
+    {
+      "name": "snow_scr_ui_action_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_scr_ui_actions_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_scr_ui_policies_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_scr_ui_policy_add",
+      "gate": "scripting",
+      "mutates": true,
+      "table": "sys_ui_policy"
+    },
+    {
+      "name": "snow_scr_ui_policy_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_sec_audit_results_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_sec_compliance_assessment_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_sec_compliance_policies_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_sec_grc_controls_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_sec_grc_risk_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_sec_grc_risk_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_sec_grc_risks_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_sec_security_dashboard_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_sec_security_incident_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_sec_security_incident_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_sec_security_incident_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_sec_security_incidents_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_sec_security_playbook_exec",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_sec_security_playbooks_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_sec_threat_intelligence_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_sec_vulnerabilities_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_sec_vulnerabilities_scan",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_sec_vulnerability_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_sec_vulnerability_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_studio_scoped_app_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_studio_scoped_app_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_studio_scoped_app_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_studio_scoped_apps_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_tsk_my_tasks_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_tsk_task_complete",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_tsk_task_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_tsk_task_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_us_active_update_set_ensure",
+      "gate": "scripting",
+      "mutates": true,
+      "table": "sys_update_set"
+    },
+    {
+      "name": "snow_us_capture_target_set",
+      "gate": "write",
+      "mutates": true,
+      "table": "sys_user_preference"
+    },
+    {
+      "name": "snow_us_current_update_set_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_us_update_set_add",
+      "gate": "scripting",
+      "mutates": true,
+      "table": "sys_update_set"
+    },
+    {
+      "name": "snow_us_update_set_complete",
+      "gate": "scripting",
+      "mutates": true,
+      "table": "sys_update_set"
+    },
+    {
+      "name": "snow_us_update_set_export",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_us_update_set_preview",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_us_update_set_switch",
+      "gate": "scripting",
+      "mutates": true,
+      "table": "sys_update_set"
+    },
+    {
+      "name": "snow_us_update_sets_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_usr_group_add",
+      "gate": "write",
+      "mutates": true,
+      "table": "sys_user_group"
+    },
+    {
+      "name": "snow_usr_group_modify",
+      "gate": "write",
+      "mutates": true,
+      "table": "sys_user_group"
+    },
+    {
+      "name": "snow_usr_groups_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_usr_user_add",
+      "gate": "write",
+      "mutates": true,
+      "table": "sys_user"
+    },
+    {
+      "name": "snow_usr_user_group_assign",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_usr_user_group_unassign",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_usr_user_modify",
+      "gate": "write",
+      "mutates": true,
+      "table": "sys_user"
+    },
+    {
+      "name": "snow_usr_users_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_va_va_categories_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_va_va_conversation_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_va_va_conversations_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_va_va_topic_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_va_va_topic_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_va_va_topic_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_va_va_topics_full_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ws_uib_component_add",
+      "gate": "scripting",
+      "mutates": true
+    },
+    {
+      "name": "snow_ws_uib_component_modify",
+      "gate": "scripting",
+      "mutates": true
+    },
+    {
+      "name": "snow_ws_uib_components_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ws_uib_data_broker_add",
+      "gate": "scripting",
+      "mutates": true
+    },
+    {
+      "name": "snow_ws_uib_data_brokers_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ws_uib_page_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_ws_uib_page_modify",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_ws_uib_page_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ws_uib_page_remove",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_ws_uib_pages_index",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ws_ux_app_route_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_ws_ux_experience_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_ws_workspace_add",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_ws_workspace_list_configure",
+      "gate": "write",
+      "mutates": true
+    },
+    {
+      "name": "snow_ws_workspace_read",
+      "gate": "none",
+      "mutates": false
+    },
+    {
+      "name": "snow_ws_workspaces_index",
+      "gate": "none",
+      "mutates": false
+    }
+  ],
+  "presets": {
+    "read-only": {
+      "WRITE_ENABLED": "false",
+      "CMDB_WRITE_ENABLED": "false",
+      "SCRIPTING_ENABLED": "false",
+      "ATF_ENABLED": "false",
+      "NOW_ASSIST_ENABLED": "false",
+      "FLUENT_ENABLED": "false"
+    },
+    "pdi-developer": {
+      "WRITE_ENABLED": "true",
+      "CMDB_WRITE_ENABLED": "true",
+      "SCRIPTING_ENABLED": "true",
+      "ATF_ENABLED": "true",
+      "NOW_ASSIST_ENABLED": "false",
+      "FLUENT_ENABLED": "false"
+    },
+    "full": {
+      "WRITE_ENABLED": "true",
+      "CMDB_WRITE_ENABLED": "true",
+      "SCRIPTING_ENABLED": "true",
+      "ATF_ENABLED": "true",
+      "NOW_ASSIST_ENABLED": "true",
+      "FLUENT_ENABLED": "true"
+    }
+  },
+  "protocols": {
+    "updateSetCapture": [
+      "snow_us_active_update_set_ensure",
+      "snow_us_capture_target_set",
+      "<write>",
+      "snow_us_update_set_preview"
+    ]
+  },
+  "toolPackage": "full",
+  "storeSchemaVersion": 1,
+  "maxRecordsDefault": 100,
+  "toolCount": 399
+}

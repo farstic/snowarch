@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/farstic/snowarch/engine.config.schema.json",
+  "title": "engine.config.json \u2014 the product's constants, in one place",
+  "description": "Every value the engine, the server, the doctor and the release tooling would otherwise hand-write twice. Consumers read it; ARC-01 only defines it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "product",
+    "repo",
+    "cli",
+    "mcp",
+    "floors",
+    "docs",
+    "roster"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Editor hint only. Declared so additionalProperties:false does not reject it."
+    },
+    "product": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Names the global config directory (~/.config/<product>/). Separate from `cli` on purpose: renaming one must not silently rename the other (D-01(b))."
+    },
+    "repo": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    },
+    "cli": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Names the command the user types."
+    },
+    "mcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "serverKey",
+        "package",
+        "packageDir",
+        "permissions"
+      ],
+      "properties": {
+        "serverKey": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "description": "The key in .mcp.json. Letters, digits, - and _ only (D-01); it becomes part of every generated permission rule, mcp__<serverKey>__<tool>."
+        },
+        "package": {
+          "type": "string",
+          "pattern": "^@[a-z0-9-]+/[a-z0-9-]+$"
+        },
+        "packageDir": {
+          "type": "string",
+          "pattern": "^packages/[a-z0-9-]+$"
+        },
+        "permissions": {
+          "description": "How the generated permission blocks in .claude/settings.json are written. allowStyle \"explicit\" lists one entry per read tool \u2014 deterministic and lint-checkable; \"glob\" is implemented and tested but not selected, because a glob buys nothing worth a matching bug. askStyle \"ask\" prompts on every mutating tool; \"deny-with-hook\" is the S-18 fallback.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "allowStyle",
+            "askStyle"
+          ],
+          "properties": {
+            "allowStyle": {
+              "enum": [
+                "explicit",
+                "glob"
+              ]
+            },
+            "askStyle": {
+              "enum": [
+                "ask",
+                "deny-with-hook"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "floors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claudeCode",
+        "node",
+        "git"
+      ],
+      "description": "Minimum supported versions. The doctor reads these (01 section 8, section 12).",
+      "properties": {
+        "claudeCode": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "node": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "git": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "2.34.1 per ADR-0008 (Accepted 2026-09-07), which supersedes ADR-0001's 2.25.0: below 2.34.1 nothing is measured, and the corpus recipe needs 2.34.1 plus the root-file repair step."
+        }
+      }
+    },
+    "docs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "family",
+        "pin",
+        "areasFile",
+        "upstream"
+      ],
+      "properties": {
+        "family": {
+          "type": "string",
+          "enum": [
+            "australia",
+            "xanadu",
+            "yokohama",
+            "zurich"
+          ],
+          "description": "Upstream release-family branches (00 section 3.10). main/mobile/nofamily/other/store are not release families. ARC-03's `snowarch docs family <name>` must extend this enum when ServiceNow adds one."
+        },
+        "pin": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "Full SHA. Must equal the vendor/ServiceNowDocs gitlink once ARC-03 creates it \u2014 enforced by tests/engine-config.test.mjs, which reports the check as skipped until then."
+        },
+        "areasFile": {
+          "type": "string",
+          "pattern": "^vendor/[a-z0-9.-]+$"
+        },
+        "upstream": {
+          "type": "string",
+          "description": "The submodule URL. Must equal .gitmodules submodule.vendor/ServiceNowDocs.url \u2014 asserted by tests/docs-pin.test.mjs, because a config naming a different upstream than the one git will clone is worse than no config. Constrained by PATTERN, not `format: \"uri\"`: plain Ajv ships no format validators, and in strict mode an unknown format is a hard error (\"unknown format \\\"uri\\\" ignored\"), so the story's `format: uri` would have made every run of tests/engine-config.test.mjs throw. The pattern is also tighter than `uri` \u2014 it accepts only an https git URL, which is the only shape a submodule clone here may take.",
+          "pattern": "^https://[A-Za-z0-9.-]+/[A-Za-z0-9._/-]+\\.git$"
+        }
+      }
+    },
+    "roster": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "skills",
+        "agents"
+      ],
+      "description": "Expected counts, cross-checked against the files on disk by the test \u2014 00 section 3.8 records that these drift when they live in prose.",
+      "properties": {
+        "skills": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "agents": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "utility": {
+          "description": "Skill directories that are tooling rather than a specialist persona \u2014 the /snowarch skill. They are excluded from the roster count, listed in their own table by gen-roster.mjs, and exempt from the persona rules (EXAMPLES.md, the ## Triggers section). One source for all of them.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "licence": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "ARC-11-C1. Where the signed revocation list is fetched from: by git, from this explicit address, never from origin, so a fork cannot substitute its own list.",
+      "properties": {
+        "revocations": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repo",
+            "ref",
+            "path"
+          ],
+          "properties": {
+            "repo": {
+              "type": "string",
+              "minLength": 1,
+              "description": "owner/name on GitHub, fetched over HTTPS, or a full URL"
+            },
+            "ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._/-]+$",
+              "description": "the branch that carries the list"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._/-]+\\.json$",
+              "description": "the list's file on that branch"
+            }
+          }
+        }
+      }
+    }
+  }
+}

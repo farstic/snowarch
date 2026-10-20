@@ -1,0 +1,26 @@
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="house-style-reference" name="Diagramming Specialist — house style">
+    <mxGraphModel dx="900" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="780" pageHeight="560" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="t" value="&lt;b style='font-size:18px'&gt;Diagramming Specialist — house style (draw.io)&lt;/b&gt;" style="text;html=1;align=left;fontColor=#0f172a;" vertex="1" parent="1"><mxGeometry x="30" y="20" width="600" height="26" as="geometry" /></mxCell>
+        <mxCell id="sub" value="&lt;font color='#64748b'&gt;Reuse these mxCell styles. Baseline = solid; custom-pending/manual = dashed. Export SVG/PNG for docs; the .drawio is the editable source.&lt;/font&gt;" style="text;html=1;align=left;fontSize=11;" vertex="1" parent="1"><mxGeometry x="30" y="46" width="700" height="18" as="geometry" /></mxCell>
+
+        <mxCell id="plat" value="&lt;b&gt;ServiceNow platform&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px' color='#3b7a5a'&gt;baseline object / table&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eafaf1;gradientColor=#d6f0e1;strokeColor=#18a558;fontColor=#0a5c38;shadow=1;arcSize=12;" vertex="1" parent="1"><mxGeometry x="30" y="90" width="200" height="56" as="geometry" /></mxCell>
+        <mxCell id="actor" value="&lt;b&gt;Actor / role&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef1ff;gradientColor=#e0e4fd;strokeColor=#6366f1;fontColor=#3730a3;shadow=1;arcSize=12;" vertex="1" parent="1"><mxGeometry x="260" y="90" width="200" height="56" as="geometry" /></mxCell>
+        <mxCell id="ext" value="&lt;b&gt;External system&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f7f8fa;gradientColor=#eceef1;strokeColor=#94a3b8;fontColor=#334155;shadow=1;arcSize=12;" vertex="1" parent="1"><mxGeometry x="490" y="90" width="200" height="56" as="geometry" /></mxCell>
+        <mxCell id="ePlatExt" value="REST / OAuth2" style="endArrow=block;html=1;strokeColor=#94a3b8;strokeWidth=2;fontColor=#64748b;fontSize=10;" edge="1" parent="1" source="actor" target="ext"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="cfg" value="&lt;b&gt;Custom field (config)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ea;gradientColor=#fdeccf;strokeColor=#f59e0b;fontColor=#92400e;shadow=1;arcSize=12;" vertex="1" parent="1"><mxGeometry x="30" y="166" width="200" height="50" as="geometry" /></mxCell>
+        <mxCell id="pend" value="&lt;b&gt;Custom object — PENDING §1.1&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff5f5;gradientColor=#fde4e4;strokeColor=#dc2626;fontColor=#b91c1c;dashed=1;dashPattern=7 5;arcSize=12;" vertex="1" parent="1"><mxGeometry x="260" y="166" width="200" height="50" as="geometry" /></mxCell>
+        <mxCell id="man" value="&lt;b&gt;⚙ manual patch&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ea;gradientColor=#fdeccf;strokeColor=#f59e0b;fontColor=#92400e;dashed=1;dashPattern=6 4;arcSize=12;" vertex="1" parent="1"><mxGeometry x="490" y="166" width="200" height="50" as="geometry" /></mxCell>
+
+        <mxCell id="grp" value="Group / module (swimlane)" style="swimlane;rounded=1;html=1;startSize=30;fillColor=#eafaf1;swimlaneFillColor=#fbfcfe;strokeColor=#cbd5e1;fontColor=#0a5c38;fontStyle=1;align=left;spacingLeft=12;arcSize=4;" vertex="1" parent="1"><mxGeometry x="30" y="240" width="430" height="120" as="geometry" /></mxCell>
+        <mxCell id="grpc" value="component card inside a group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eafaf1;gradientColor=#d6f0e1;strokeColor=#18a558;fontColor=#0a5c38;shadow=1;arcSize=12;" vertex="1" parent="grp"><mxGeometry x="20" y="44" width="200" height="40" as="geometry" /></mxCell>
+
+        <mxCell id="cheat" value="&lt;b&gt;Style strings (copy):&lt;/b&gt;&lt;br&gt;Platform  fillColor=#eafaf1;gradientColor=#d6f0e1;strokeColor=#18a558;fontColor=#0a5c38;shadow=1;rounded=1&lt;br&gt;Actor  fillColor=#eef1ff;gradientColor=#e0e4fd;strokeColor=#6366f1;fontColor=#3730a3&lt;br&gt;External  fillColor=#f7f8fa;gradientColor=#eceef1;strokeColor=#94a3b8;fontColor=#334155&lt;br&gt;Config (amber)  fillColor=#fff7ea;gradientColor=#fdeccf;strokeColor=#f59e0b;fontColor=#92400e&lt;br&gt;PENDING §1.1 / manual  + dashed=1;dashPattern=7 5  (red #dc2626 / amber #f59e0b)&lt;br&gt;Group  swimlane;startSize=30;fillColor=#eafaf1;swimlaneFillColor=#fbfcfe;strokeColor=#cbd5e1&lt;br&gt;Edge  endArrow=block;strokeColor=#94a3b8;strokeWidth=2   |   Font: Helvetica/Segoe UI; arcSize=12" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;fontColor=#475569;align=left;verticalAlign=top;spacingTop=8;spacingLeft=10;fontSize=10;arcSize=8;" vertex="1" parent="1"><mxGeometry x="490" y="240" width="260" height="120" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

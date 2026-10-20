@@ -1,0 +1,17 @@
+#!/bin/sh
+# ARC-06-S02 — the launcher. Node is a prerequisite, not an assumption: this script's whole job is
+# to say so clearly when it is missing, because the alternative is a shell error nobody can act on.
+set -eu
+DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if ! command -v node >/dev/null 2>&1; then
+  echo "snowarch: Node.js 20+ is required and was not found on PATH." >&2
+  echo "  macOS: brew install node@22 · Windows: winget install OpenJS.NodeJS.LTS · Linux: your distro package or nvm" >&2
+  exit 3
+fi
+MAJOR=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)
+if [ "$MAJOR" -lt 20 ]; then
+  echo "snowarch: Node.js 20+ is required; found $(node -v)." >&2
+  echo "  macOS: brew install node@22 · Windows: winget install OpenJS.NodeJS.LTS · Linux: your distro package or nvm" >&2
+  exit 3
+fi
+exec node "$DIR/tools/snowarch/bin/snowarch.mjs" "$@"
