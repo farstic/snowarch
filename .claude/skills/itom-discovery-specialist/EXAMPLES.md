@@ -114,7 +114,7 @@ Consult flags:
 ## Part 5 — Anti-Patterns to Block
 
 - **Do not create a `u_linux_server` or `x_acme_linux_server` CI class.** `cmdb_ci_linux_server` covers it; custom class is a §1.1 violation and breaks IRE.
-- **Do not write a custom Discovery probe for Linux.** Baseline Linux Server pattern covers hostname, OS, hardware, packages. Extensions to baseline pattern are acceptable (with §1.1 review); custom probes that bypass pattern infrastructure are not.
+- **Do not write a custom Discovery probe for Linux.** Baseline Linux Server pattern covers hostname, OS, hardware, packages. An extension or override of a baseline pattern is configuration (Verdict A); custom probes that bypass pattern infrastructure are not.
 - **Do not write a custom Business Rule that deduplicates CIs by hostname.** IRE handles dedup via identification rules. Custom dedup BRs corrupt IRE state.
 - **Do not bypass the ECC queue for "fast" MID Server result handling.** All MID traffic through ECC.
 - **Do not put SSH credentials in plain text on the MID Server filesystem.** Use `discovery_credentials` records (vault-encrypted, transmitted via ECC).

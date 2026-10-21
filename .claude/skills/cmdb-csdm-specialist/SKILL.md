@@ -43,7 +43,7 @@ You ground every factual claim about baseline CMDB/CSDM behaviour in the **Austr
 | Verdict | When it applies | Citation discipline |
 |---|---|---|
 | **Verdict A** (fully covered by baseline) | No custom object was named in the request AND baseline covers the need. A builder may be dispatched. | Citations **preferred** — at least one citation per baseline construct claimed |
-| **Verdict B** (requires baseline extension) | Baseline covers the need only with a baseline EXTENSION — configuration of an existing object, not a new one. | Citations **required** — must cite the baseline construct being extended |
+| **Verdict B** (requires baseline extension) | Baseline covers the need only by adding a field to a baseline table. A configuration record on an existing table (an assignment rule, rows of an existing data lookup, a business rule, a notification, an ACL rule, a changed attribute of an existing dictionary entry) is Verdict A, its script included, unless the record is itself a §1.1 object: a new state value, a Connection & Credential Alias, a new sys_user_group structure, or an item on this skill's §1.1 list. A new table, one that extends a baseline table included, is a custom object: Verdict C (governance §1.1). | Citations **required** — must cite the baseline construct being extended |
 | **Verdict C** (§1.1 halt — a custom object was named or is the only viable path) | A custom object was NAMED in the request, **or** is the only viable path after the baseline evaluation. **The halt IS the verdict.** Part 2 carries "baseline covers it" when it does — that finding does not make the verdict A. Approval arrives as a separate user message; it is never inferred from the request. | Citations **required** — must cite the baseline alternatives evaluated and why they fall short |
 
 A request that NAMES a custom object can never be Verdict A, however well baseline answers it:
@@ -153,7 +153,7 @@ If Discovery output is incomplete, list missing fields in the envelope's Open Qu
 
 You are bound by §1.1. CSDM intensifies it: the model is prescriptive, so deviation is not just a custom-object risk — it breaks the standard the whole platform's analytics and AI features depend on. You may not propose, recommend, or pre-approve any of the following without explicit Chief Architect approval in the routing-time dispatch envelope:
 
-- **Custom CMDB CI classes** that duplicate or shadow a baseline class — extend the baseline `cmdb_ci` class hierarchy instead.
+- **Custom CMDB CI classes** that duplicate or shadow a baseline class — use the baseline class that fits, with a field added if needed (Verdict B); a new class, one extending a baseline class included, is a new table: Verdict C.
 - **New top-level CI classes** extending `cmdb_ci` directly — requires the strongest justification ("genuinely new technology not covered by the baseline class tree"). CMDB extensions carry *high* upgrade-path sensitivity because ServiceNow ships baseline class additions every release.
 - **Off-model service tables** — bespoke tables that sit beside `cmdb_ci_service_business` / `cmdb_ci_service_technical` / `cmdb_ci_service_auto` rather than using them.
 - **Custom relationship tables** that duplicate `cmdb_rel_ci` semantics, or custom `cmdb_rel_type` records used to invent relationships not in the CSDM model.
@@ -253,7 +253,9 @@ Cite where Verdict B/C is in play.]
 
 ## Part 4 — Routing Recommendation
 
-[PROCEED — baseline configuration only / PROCEED — dispatch to Technical Designer with constraints / HALT — §1.1 proposal]
+- **Verdict A: PROCEED — baseline configuration only.** No Technical Designer needed. The request is satisfied by configuration records on existing tables, their scripts included. Name the builders the configuration crosses, in the order below: the Integration Specialist for data from another system, the Flow Designer Specialist for flows, the Developer for scripts; or none, and instruct the user on the baseline configuration steps.
+- **Verdict B: PROCEED — dispatch to Technical Designer with constraints.** Technical Designer receives this envelope as the dispatch input, for the new field Part 3 named. Parts 1–3 become hard constraints on the design.
+- **Verdict C: HALT — §1.1 custom-object proposal required.** Wait for the user's decision on the Verdict C proposal before dispatching anyone.
 - **Builders the request crosses:** the Integration Specialist first, for the connection, spoke, alias and auth, then the Flow Designer Specialist for the orchestration, then the Developer for any script; the Architect proposes them in that order (CLAUDE.md §7), and an outbound or inbound integration among them triggers the Security & GRC consult (§3.1). This Part 4 is an input to the Architect's routing, never the routing.
 - **Co-firing gateways:** A co-firing gateway fires in this turn too: load its skill, write its five-part Envelope beside this one, and reconcile them before the turn ends — the shared constructs named once, each layer's owner stated, any one Verdict C halting all of them. Each Envelope cites as a single-gateway turn does, `(citation: markdown/<area>/<page>.md)` on every baseline claim, never a bare file name. Each Envelope has its own grounding budget, eight pages by default, declared per Envelope in the answer. A co-firing gateway named with its Envelope not yet written did not fire. In each co-fired Envelope, Part 3 states the verdict in full: A names the baseline construct that covers the need and B the baseline construct it extends, each with its citation; C is the halt.
 
@@ -359,8 +361,8 @@ CSDM v5 uses `life_cycle_stage` + `life_cycle_stage_status` pairs, synchronised 
 
 | Anti-pattern | Why it's wrong | Baseline alternative | Citation |
 |---|---|---|---|
-| Custom CI class duplicating a baseline class | Breaks IRE, reporting, CSDM compliance, upgrade path | Extend the baseline class via dictionary | `markdown/servicenow-platform/configuration-management-database-cmdb/` |
-| New top-level class extending `cmdb_ci` without "new technology" justification | Almost always covered by the baseline class tree | Extend an existing baseline class | `markdown/servicenow-platform/common-service-data-model-csdm/csdm-to-cmdb-mapping.md` |
+| Custom CI class duplicating a baseline class | Breaks IRE, reporting, CSDM compliance, upgrade path | Add a field to the baseline class (Verdict B) | `markdown/servicenow-platform/configuration-management-database-cmdb/` |
+| New top-level class extending `cmdb_ci` without "new technology" justification | Almost always covered by the baseline class tree | Use the existing baseline class that fits; a class extending it is still a new table (Verdict C) | `markdown/servicenow-platform/common-service-data-model-csdm/csdm-to-cmdb-mapping.md` |
 | Off-model bridging table to link CSM and ITSM to "their" services | Duplicates the shared CI/service layer; defeats CSDM | Both domains reference the same `cmdb_ci_service_*` records | `markdown/customer-service-management/csdm-framework-for-install-base-management.md` |
 | Custom relationship table or invented `cmdb_rel_type` | Off-model relationship breaks impact trees and dependency views | Use designed CSDM relationships in `cmdb_rel_ci` | `markdown/servicenow-platform/common-service-data-model-csdm/csdm-conceptual-model.md` |
 | Business Application data in `cmdb_ci_app` | Wrong table per CSDM mapping | Use `cmdb_ci_business_app` | `markdown/servicenow-platform/common-service-data-model-csdm/csdm-to-cmdb-mapping.md` |
@@ -413,7 +415,7 @@ You fire twice per CMDB/CSDM-tagged request. Second fire is post-build review of
 
 **Check 3 — §1.1 verdict alignment.** Spec respects Part 3?
 - Verdict A: any custom CI class / relationship table / bridging table = §1.1 violation.
-- Verdict B: new table instead of extension = §1.1 violation.
+- Verdict B: anything beyond the field(s) Part 3 named — a new table or CI class (one that extends a baseline class included) = §1.1 violation.
 - Verdict C: scope exceeds approval = §1.1 violation.
 
 **Check 4 — Anti-pattern check.** Any Part 5 anti-pattern present? Each hit is a §1.1 violation.

@@ -401,7 +401,7 @@ OQ-EV-6. **Mobility COE membership model** — How is "Mobility COE" membership 
 ## Reading these examples
 
 - **Example 1 (Verdict A)** — pattern for HR LE configuration via the baseline activity-set library. PROCEED — baseline configuration only. No Technical Designer dispatch.
-- **Example 2 (Verdict B)** — pattern for single-field extension on `sn_hr_le_case`. Smallest-scope custom object per §1.1's hierarchy. PROCEED — Technical Designer dispatch with envelope as constraints.
+- **Example 2 (Verdict B)** — pattern for single-field extension on `sn_hr_le_case`: one field on a baseline table, the one schema addition Verdict B allows, with no §1.1 halt. PROCEED — Technical Designer dispatch with envelope as constraints.
 - **Example 3 (Verdict C)** — pattern for §1.1 halt on sensitive-data architecture. Four baseline alternatives evaluated honestly, three sensitivity tiers requiring different ACL patterns, country-specific compliance flagged. HALT — Chief Architect decision required.
 
 The §6.2 post-build review fires after Technical Designer returns a spec for Verdict B and Verdict C (approved). The Domain Expert re-validates against the envelope before Developer is dispatched.

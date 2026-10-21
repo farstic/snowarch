@@ -185,7 +185,7 @@ The five values map a *new dimension* that does not exist on `sn_customerservice
 
 **Why this is Verdict B, not Verdict C:**
 
-A new field on a baseline table is the smallest-scope custom object per §1.1's preference hierarchy (top of the list). It is not a new table, not a new scoped app, not a new Connection Alias, not a state extension on a baseline state field. It is the minimum-viable customisation, which §1.1 accepts at routing-time without halting — provided the Chief Architect approves the field name and engagement-scope conventions.
+A new field on a baseline table is the one schema addition Verdict B allows, at the top of §1.1's preference hierarchy. It is not a new table, not a new scoped app, not a new Connection Alias, not a state extension on a baseline state field, so it is not a §1.1 custom object: it proceeds at routing time without a halt, and its name follows the engagement's naming conventions.
 
 (citation: markdown/customer-service-management/csm-data-management.md — case data model)
 

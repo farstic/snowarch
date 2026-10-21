@@ -9,6 +9,93 @@ All notable changes to this project are documented in this file. Everything hand
 
 ### Notes
 
+## 2.2.3 — 2026-10-21
+
+### Notes
+
+**A patch release: the gateways judge configuration, a new field and a new table one way, and a bootstrap or an upgrade
+keeps your own SessionStart hooks.** A configuration record on an existing table, its script included, is baseline
+configuration, unless §1.1 lists it. A new field on a baseline table is an extension. Any new table is a custom object
+and waits for approval. The ITSM gateway also checks for the business rule that fills an incident's assignment group
+from its configuration item; it ships with a plugin, so the gateway verifies the instance has it. Your own SessionStart
+hooks in `.claude/settings.local.json` now survive a bootstrap and an upgrade.
+
+### Fixed
+
+- A bootstrap or an upgrade replaced every SessionStart hook in `.claude/settings.local.json` with its own, so a
+  SessionStart hook of yours was lost each time. It now rewrites only the hook it wrote and keeps yours (ARC-09-C193).
+- The doctor's store check (SV-02) printed a store key path as a masked name: an unknown key under the instance `pdi`
+  read `i***.p*** Unrecognized key(s) in object: 'notes'`. The server now names the path in backticks, which the doctor
+  prints as written (ARC-09-C211).
+
+### Changed
+
+- The six gateways define Verdict B one way: a new field on a baseline table, and nothing else. A configuration record
+  on an existing table, such as an assignment rule, rows of an existing data lookup, a business rule, a notification or
+  an ACL rule, is Verdict A, its script included, unless it is itself a §1.1 object. Any new table, one that extends a
+  baseline table included, is Verdict C and waits for approval, where a gateway could treat a table extension as B and
+  proceed. FSO's service definitions, decision-table rows, document lists and record producers move from B to A. The
+  ITSM gateway grounds assignment in the **Populate Assignment Group based on CI/SO** business rule and in the
+  conditions and Execution Order of assignment rules (ARC-09-C204).
+- The platform notes no longer name the maintainers' own instances (ARC-09-C216).
+
+### Internal
+
+- The upgrade test harness gives every product process it starts a home of its own, so a test run neither reads nor rewrites
+  the developer's `~/.claude.json` (ARC-09-C212).
+
+### Fixed
+
+- engine: ARC-09-C204, the routing tables and after-gateway lines spare an A the TD (ec66f1a)
+- engine: ARC-09-C204, every gateway's Part 4 names its letter, and A needs no TD (bb7e608)
+- bootstrap: ARC-09-C193, a user's session-start.mjs outside our tree is theirs (6d178da)
+- bootstrap: ARC-09-C193, a bootstrap replaces only our SessionStart hook, not the key (59c931c)
+- server: ARC-09-C211, a store error names its key path in backticks (496c826)
+- engine: ARC-09-C204, B is a new field only, configuration is A, any new table is C (1a5423b)
+
+### Internal
+
+- changelog: the 2.2.3 notes, as the architect ruled them (1967433)
+- tests: ARC-09-C216, the guard's control names its git init branch (ARC-09-C14) (2a55326)
+- plan: ARC-09-C216, the row names #507 (56dc3a7)
+- changelog: ARC-09-C216, the Changed bullet for the platform notes (044df30)
+- ARC-09-C193, the architect's correction: no user path loses hooks without Node (581447c)
+- plan: ARC-09-C211, the row names #506 and where the store case lives now (12bed5f)
+- doctor: ARC-09-C211, the store case moves to redaction-e2e, which needs the server (f3a8821)
+- doctor: ARC-09-C211, the masked-token pattern is defined once, in a helper (88ed670)
+- plan: ARC-09-C211, the row names #505 (99f2d27)
+- changelog: ARC-09-C211, the Fixed bullet: a store key path prints as written (2a26833)
+- bootstrap: ARC-09-C193, the boundary case and its comment follow the ruled rule (eec8252)
+- plan: ARC-09-C193, the row names #504 and the red-first case of a user's own script (c6b3f40)
+- changelog: ARC-09-C193, the Fixed bullet: a SessionStart hook of yours is kept (7a8c4c7)
+- plan: ARC-09-C204, the row: #503, the rework and the after-sitting (3b972f9)
+- engine: ARC-09-C204, no routing line outside Part 4 sends Verdict A to the TD, red (2b428c8)
+- engine: ARC-09-C204, every gateway's Part 4 routes each letter, A to no TD, red (ec8205d)
+- plan: ARC-09-C216, the rows cite the instance without its label; the C216 row (79750ea)
+- server: ARC-09-C216, four test comments cite the instance without its label (2b9db65)
+- ARC-09-C216, the validation records cite the instance without its label (eab4cc3)
+- ARC-09-C216, the platform notes say what an instance is, not its label (a1ff0b0)
+- tests: ARC-09-C216, red: no text file names a maintainer's instance label (ebe2770)
+- plan: ARC-09-C193, the row: built on its branch, ours is a script in tools/snowarch/ (c8f5d1a)
+- ARC-09-C193, MIGRATION says a SessionStart hook of your own is carried (1b2128a)
+- bootstrap: ARC-09-C193, a user's own script named session-start.mjs is kept (df95929)
+- bootstrap: ARC-09-C193, a user's own SessionStart hook survives every bootstrap (cf9c225)
+- plan: ARC-09-C211, the row: a store key path in backticks, held at runtime (6f117e8)
+- changelog: ARC-09-C211, the server package entry for the backticked key path (64ad0dc)
+- engine: ARC-09-C212, the class case compares the reader's file names in POSIX form (abf510e)
+- doctor: ARC-09-C211, a store error's key path prints as a key, never a masked name (8599b28)
+- plan: ARC-09-C212, the row names #502 (00437a5)
+- plan: ARC-09-C204, the row: the measured flip and the one rule, field B (bc50c67)
+- changelog: 2.2.3 in progress: interim Notes, ARC-09-C204 Changed, ARC-09-C212 (966c596)
+- engine: ARC-09-C204, one Verdict B in every gateway, held as a class, red first (cbeb09a)
+- plan: ARC-09-C212, the row: a fixture home for every product start in the harness (efcb838)
+- engine: ARC-09-C212, the bootstrap's own doctor is held to the fixture home too (4d805f7)
+- engine: ARC-09-C212, every product start in the harness gets a fixture home (286fe7e)
+- engine: ARC-09-C212, the harness hands its children the home of the process (8ce0dc7)
+- plan: ARC-09 rows shipped in 2.2.2, release commit 73ad50e (4b29040)
+
+Tag v2.2.3 · contract af6bb497a63a · docs-pin aa447ce
+
 ## 2.2.2 — 2026-10-21
 
 ### Notes

@@ -20,7 +20,7 @@ import { plannedSteps } from '../../steps/index.mjs';
 import { version as engineVersionOf } from '../../config.mjs';
 import { spellings } from '../../text.mjs';
 import { defineCheck } from '../registry.mjs';
-import { projectEntryEnabled } from '../../settings-local.mjs';
+import { isOurSessionStartHook, projectEntryEnabled } from '../../settings-local.mjs';
 import { RUNNING_STEP_ENV } from '../../spawn-env.mjs';
 import { which } from '../../which.mjs';
 
@@ -143,7 +143,8 @@ export function sessionStartProblems(local, root) {
   let scriptMissing = false;
   const entries = local?.hooks?.SessionStart;
   const hooks = (Array.isArray(entries) ? entries : []).flatMap((e) => e.hooks ?? []);
-  const hook = hooks.find((h) => /session-start\.mjs/.test(String(h?.command ?? '')));
+  // ARC-09-C193 — the writer's own definition of our hook, so the two cannot disagree about which entry is ours.
+  const hook = hooks.find(isOurSessionStartHook);
   if (!hook) return { problems: [], entry, scriptMissing, present: false };
   const command = String(hook.command ?? '');
   if (!/^node\s/.test(command)) entry.push(`SessionStart does not run node (${command})`);

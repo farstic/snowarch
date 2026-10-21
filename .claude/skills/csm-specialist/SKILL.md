@@ -35,7 +35,7 @@ Trigger conditions — any of these in a user request fires this skill:
 - Request is about ITSM (incident, problem, change, RITM, MIM) → `itsm-specialist`.
 - Request is about HRSD (HR case, Lifecycle Event, Employee Center) → `hrsd-specialist`.
 - Request is about CMDB, Discovery, MID Server, Service Mapping → `itom-discovery-specialist`.
-- Request asks for code → after gateway, Technical Designer then Developer.
+- Request asks for code → after gateway, the Developer on a Verdict A; on a Verdict B, Technical Designer then Developer.
 - Request asks for ACL matrix or table model → after gateway, Technical Designer.
 
 ## Ground Truth — `ServiceNowDocs/` Citation Discipline
@@ -60,7 +60,7 @@ You ground every factual claim about baseline CSM behaviour in the Australia bra
 | Verdict | When it applies | Citation discipline |
 |---|---|---|
 | **Verdict A** (fully covered by baseline) | No custom object was named in the request AND baseline covers the need. A builder may be dispatched. | Citations **preferred** — at least one citation per baseline construct claimed |
-| **Verdict B** (requires baseline extension) | Baseline covers the need only with a baseline EXTENSION — configuration of an existing object, not a new one. | Citations **required** — must cite the baseline construct being extended |
+| **Verdict B** (requires baseline extension) | Baseline covers the need only by adding a field to a baseline table. A configuration record on an existing table (an assignment rule, rows of an existing data lookup, a business rule, a notification, an ACL rule, a changed attribute of an existing dictionary entry) is Verdict A, its script included, unless the record is itself a §1.1 object: a new state value, a Connection & Credential Alias, a new sys_user_group structure, or an item on this skill's §1.1 list. A new table, one that extends a baseline table included, is a custom object: Verdict C (governance §1.1). | Citations **required** — must cite the baseline construct being extended |
 | **Verdict C** (§1.1 halt — a custom object was named or is the only viable path) | A custom object was NAMED in the request, **or** is the only viable path after the baseline evaluation. **The halt IS the verdict.** Part 2 carries "baseline covers it" when it does — that finding does not make the verdict A. Approval arrives as a separate user message; it is never inferred from the request. | Citations **required** — must cite the baseline alternatives evaluated and why they fall short |
 
 A request that NAMES a custom object can never be Verdict A, however well baseline answers it:
@@ -85,6 +85,7 @@ Per `governance/governance-rules.md` §1.1, you may not ratify any of the follow
 - A custom state-model extension (new state values on `sn_customerservice_case.state`, or on the **State** of a Contract [`ast_contract`] *(citation: `markdown/it-service-management/contract-management/t_ApproveOrRejectAContract.md`)*, etc.).
 - A custom Connection & Credential Alias.
 - A custom escalation table — **specific CSM hot spot, and the answer is always no.** The baseline escalation tables `sn_customerservice_escalation`, `sn_customerservice_escalation_template` and `sn_customerservice_escalation_severity` ship in Australia (citation: `markdown/customer-service-management/case-escalation-components.md`), so a custom one is a §1.1 violation, not a release-family question.
+- Custom entitlement-evaluation logic in place of the baseline entitlement calculation *(citation: `markdown/customer-service-management/csm-case-entitlement-calculation.md`)*.
 - Any other major custom architectural object.
 
 **Your bias is baseline.** CSM has rich baseline coverage — case state machine, entitlement evaluation via the baseline calculation (`global.CSManagementUtils`), account hierarchy via baseline `customer_account` parent/child relationships, special handling via baseline notes. The default answer to "do we need a custom table for X" in CSM is almost always **no**.
@@ -165,9 +166,9 @@ For each table:
 (Identical structure to ITSM Specialist.)
 
 ## Part 4 — Routing Recommendation
-- **PROCEED — baseline configuration only.**
-- **PROCEED — dispatch to Technical Designer with constraints.**
-- **HALT — §1.1 custom-object proposal required.**
+- **Verdict A: PROCEED — baseline configuration only.** No Technical Designer needed. The request is satisfied by configuration records on existing tables, their scripts included. Name the builders the configuration crosses, in the order below: the Integration Specialist for data from another system, the Flow Designer Specialist for flows, the Developer for scripts; or none, and instruct the user on the baseline configuration steps.
+- **Verdict B: PROCEED — dispatch to Technical Designer with constraints.** Technical Designer receives this envelope as the dispatch input, for the new field Part 3 named. Parts 1–3 become hard constraints on the design.
+- **Verdict C: HALT — §1.1 custom-object proposal required.** Wait for the user's decision on the Verdict C proposal before dispatching anyone.
 - **Builders the request crosses:** the Integration Specialist first, for the connection, spoke, alias and auth, then the Flow Designer Specialist for the orchestration, then the Developer for any script; the Architect proposes them in that order (CLAUDE.md §7), and an outbound or inbound integration among them triggers the Security & GRC consult (§3.1). This Part 4 is an input to the Architect's routing, never the routing.
 - **Co-firing gateways:** A co-firing gateway fires in this turn too: load its skill, write its five-part Envelope beside this one, and reconcile them before the turn ends — the shared constructs named once, each layer's owner stated, any one Verdict C halting all of them. Each Envelope cites as a single-gateway turn does, `(citation: markdown/<area>/<page>.md)` on every baseline claim, never a bare file name. Each Envelope has its own grounding budget, eight pages by default, declared per Envelope in the answer. A co-firing gateway named with its Envelope not yet written did not fire. In each co-fired Envelope, Part 3 states the verdict in full: A names the baseline construct that covers the need and B the baseline construct it extends, each with its citation; C is the halt.
 
@@ -264,7 +265,7 @@ Cases where a partner organisation (not the direct customer) is the responsible 
 | Anti-pattern | Baseline alternative | Citation |
 |---|---|---|
 | Custom escalation table | Baseline `sn_customerservice_escalation` (+ `_template`, `_severity`), with `sys_audit` for field-level history once Audit is set on the dictionary record | `markdown/customer-service-management/case-escalation-components.md` |
-| Custom customer-contact table | Extend `customer_contact` baseline (which extends `sys_user`) | `markdown/customer-service-management/configure-csm-accounts-contacts.md` |
+| Custom customer-contact table | Fields added to `customer_contact` (which extends `sys_user`): Verdict B; a table extending it is still a new table (Verdict C) | `markdown/customer-service-management/configure-csm-accounts-contacts.md` |
 | Custom entitlement-evaluation logic | Baseline entitlement calculation (`global.CSManagementUtils`, `getFirstEntitlement`) | `markdown/customer-service-management/csm-case-entitlement-calculation.md` |
 | Custom account-hierarchy table | the account's baseline parent-account self-reference | `markdown/customer-service-management/c_AccountHierarchy.md` |
 | Custom case-routing table | `sysrule_assignment` records + Advanced Work Assignment | `markdown/customer-service-management/csm-case-management.md` |
@@ -290,7 +291,7 @@ After Technical Designer returns a spec for a CSM-tagged design, you are re-disp
 
 3. **§1.1 verdict alignment.** Does the spec respect Part 3?
    - Verdict A: any custom object in spec = §1.1 violation.
-   - Verdict B: new table or scoped app instead of extension = §1.1 violation.
+   - Verdict B: anything beyond the field(s) Part 3 named — a new table (one that extends a baseline table included), scoped app or state value = §1.1 violation.
    - Verdict C: scope exceeds approval = §1.1 violation.
 
 4. **Anti-pattern check.** Does the spec contain any anti-pattern from Part 5? Each hit is a §1.1 violation.
@@ -345,7 +346,7 @@ Return rejection when:
 | When | Hand-off |
 |---|---|
 | Verdict A, configuration only | **Developer** for minor scripts, or instruct user on baseline configuration |
-| Verdict A or B, needs design | **Technical Designer** with this envelope as constraints |
+| Verdict B, needs design | **Technical Designer** with this envelope as constraints |
 | Spec references flows | Technical Designer → **Flow Designer Specialist** |
 | Spec references integrations | Technical Designer → **Integration Specialist** |
 | Request touches CMDB or service mapping | **ITOM/Discovery Specialist** routing-time consult |

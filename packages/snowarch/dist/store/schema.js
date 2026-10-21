@@ -71,9 +71,16 @@ export const storeSchema = z.object({
     defaultInstance: label.optional(),
     instances: z.record(label, instanceSchema),
 }).strict();
-/** `instances.pdi.flags.WRITE_ENABLED` — the path a user can find in their own file. */
+/**
+ * `instances.pdi.flags.WRITE_ENABLED`, in backticks: the path a user can find in their own file, or nothing for the
+ * store's root.
+ *
+ * ARC-09-C211 — IN BACKTICKS, because a bare `word.word` is what the engine's printer masks as a person's first.last:
+ * the doctor's SV-02 printed "instances.pdi Unrecognized key(s) …" as "i***.p*** …". A key in backticks is left alone.
+ */
 export function issuePath(issue) {
-    return issue.path.join('.');
+    const path = issue.path.join('.');
+    return path ? `\`${path}\`` : '';
 }
 /**
  * Version first, and separately from the schema: a store written by a different server is a
@@ -105,7 +112,8 @@ export function parseStore(raw, cli = cliSpelling()) {
     if (parsed.success)
         return { store: parsed.data };
     const first = parsed.error.issues[0];
-    return { error: { code: 'STORE_SCHEMA_INVALID', message: `${issuePath(first)} ${first.message}` } };
+    return { error: { code: 'STORE_SCHEMA_INVALID',
+            message: [issuePath(first), first.message].filter(Boolean).join(' ') } };
 }
 /** Absent flags read as "false" — the same semantics the env path has always had. */
 export function completeFlags(flags) {

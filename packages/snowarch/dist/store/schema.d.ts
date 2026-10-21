@@ -257,7 +257,13 @@ export interface StoreError {
     code: 'STORE_NOT_FOUND' | 'STORE_UNREADABLE' | 'STORE_SCHEMA_INVALID' | 'STORE_SCHEMA_OUTDATED' | 'STORE_SCHEMA_NEWER' | 'STORE_PERMISSIONS_TOO_OPEN';
     message: string;
 }
-/** `instances.pdi.flags.WRITE_ENABLED` — the path a user can find in their own file. */
+/**
+ * `instances.pdi.flags.WRITE_ENABLED`, in backticks: the path a user can find in their own file, or nothing for the
+ * store's root.
+ *
+ * ARC-09-C211 — IN BACKTICKS, because a bare `word.word` is what the engine's printer masks as a person's first.last:
+ * the doctor's SV-02 printed "instances.pdi Unrecognized key(s) …" as "i***.p*** …". A key in backticks is left alone.
+ */
 export declare function issuePath(issue: z.ZodIssue): string;
 /**
  * Version first, and separately from the schema: a store written by a different server is a

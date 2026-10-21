@@ -36,6 +36,23 @@ export const hookEntry = () => ({
 });
 
 /**
+ * ARC-09-C193 — which SessionStart hook is ours: one whose script is a `session-start.mjs` inside a `tools/snowarch/`
+ * folder, any folder before it, either separator. ONE definition with two readers: this writer, and the doctor's
+ * E-08 (`sessionStartProblems`). A copy carried from another install's folder (ARC-09-C192), or a script elsewhere
+ * in our tree (ARC-11-C10), is ours to replace, and E-08 reports it as a hook at a wrong path; any other hook is the
+ * user's and stays, a script of theirs that is also called `session-start.mjs` included.
+ */
+const OUR_SESSION_START = /(?:^|[\s"'/\\])tools[/\\]snowarch[/\\](?:[^\s"']*[/\\])?session-start\.mjs(?:$|[\s"'])/;
+export const isOurSessionStartHook = (hook) => OUR_SESSION_START.test(String(hook?.command ?? ''));
+
+/** The SessionStart groups with our hook taken out of each; a group that held only ours is dropped. */
+function withoutOurSessionStart(groups) {
+  return (Array.isArray(groups) ? groups : [])
+    .map((g) => (Array.isArray(g?.hooks) ? { ...g, hooks: g.hooks.filter((h) => !isOurSessionStartHook(h)) } : g))
+    .filter((g) => !Array.isArray(g?.hooks) || g.hooks.length > 0);
+}
+
+/**
  * S-05 variant B, stated as a sentence because a step has to print it.
  *
  * No bootstrap and no `mode` run ever writes `disableAllHooks` — the state's
@@ -104,8 +121,13 @@ export function computeSettings(current, { mode, nodePresent, registration, serv
   // theirs, and is left alone.
   if (removeDisableAllHooks) delete next.disableAllHooks;
 
+  // ARC-09-C193 — OURS REPLACED, THE USER'S KEPT. `Object.assign(hooks, hookEntry())` replaced the whole key, so a
+  // user's own SessionStart hook was lost at every bootstrap and upgrade, and with Node absent every SessionStart hook
+  // was deleted. Our hook is taken out of each group, a group it leaves empty is dropped, and ours is written once.
   const hooks = { ...(current.hooks ?? {}) };
-  if (nodePresent) Object.assign(hooks, hookEntry());
+  const theirs = withoutOurSessionStart(hooks.SessionStart);
+  const sessionStart = nodePresent ? [...theirs, ...hookEntry().SessionStart] : theirs;
+  if (sessionStart.length > 0) hooks.SessionStart = sessionStart;
   else delete hooks.SessionStart;
   if (Object.keys(hooks).length > 0) next.hooks = hooks;
   else if ('hooks' in current) delete next.hooks;

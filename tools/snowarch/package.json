@@ -1,6 +1,6 @@
 {
   "name": "@farstic/snowarch-tools",
-  "version": "2.2.2",
+  "version": "2.2.3",
   "private": true,
   "type": "module",
   "description": "Zero-dependency bootstrap/doctor CLI; populated by ARC-06",

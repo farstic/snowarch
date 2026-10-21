@@ -28,7 +28,7 @@ macOS / Linux:
 
 ```sh
 mv snowarch snowarch-2.2.0
-git -c advice.detachedHead=false clone --branch v2.2.2 https://github.com/farstic/snowarch.git snowarch
+git -c advice.detachedHead=false clone --branch v2.2.3 https://github.com/farstic/snowarch.git snowarch
 cd snowarch
 mkdir -p .local .claude
 cp -p ../snowarch-2.2.0/.local/licence.json ../snowarch-2.2.0/.local/instances.json .local/
@@ -43,7 +43,7 @@ Windows PowerShell:
 
 ```powershell
 Rename-Item snowarch snowarch-2.2.0
-git -c advice.detachedHead=false clone --branch v2.2.2 https://github.com/farstic/snowarch.git snowarch
+git -c advice.detachedHead=false clone --branch v2.2.3 https://github.com/farstic/snowarch.git snowarch
 cd snowarch
 New-Item -ItemType Directory -Force .local, .claude | Out-Null
 Copy-Item ..\snowarch-2.2.0\.local\licence.json, ..\snowarch-2.2.0\.local\instances.json .local\
@@ -56,7 +56,8 @@ Copy-Item -Recurse ..\snowarch-2.2.0\clients .
 
 The licence, the instance store and the audit trail of instance writes (`audit.jsonl`, and the three older files it
 rotates into) carry over, and the new install continues the trail. The carried `.claude/settings.local.json` keeps your
-permissions, environment and other hooks; its SessionStart hook is the bootstrap's, and it follows the new folder. An
+permissions, environment and hooks, SessionStart hooks of your own included; the bootstrap rewrites only its own
+SessionStart hook, which follows the new folder. An
 install that ran design-only (no instance) leaves out `--mode live`. With the carried store, `--mode live` keeps its
 default instance and does not run the wizard. Other folders of your own that git ignores (`deliverables/`, `memory/`,
 `reports/`) are copied the same way if you have them. Do not copy the rest of `.local/`: it describes the old folder,
@@ -180,13 +181,13 @@ Get-ChildItem memory, scratchpad, deliverables, diagram-preview -ErrorAction Sil
 macOS / Linux:
 
 ```sh
-git -c advice.detachedHead=false clone --branch v2.2.2 https://github.com/farstic/snowarch.git && cd snowarch && ./bootstrap.sh
+git -c advice.detachedHead=false clone --branch v2.2.3 https://github.com/farstic/snowarch.git && cd snowarch && ./bootstrap.sh
 ```
 
 Windows PowerShell:
 
 ```powershell
-git -c advice.detachedHead=false clone --branch v2.2.2 https://github.com/farstic/snowarch.git
+git -c advice.detachedHead=false clone --branch v2.2.3 https://github.com/farstic/snowarch.git
 cd snowarch
 .\bootstrap.cmd
 ```

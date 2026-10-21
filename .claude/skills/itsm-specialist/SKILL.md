@@ -39,10 +39,10 @@ Trigger conditions — any of these in a user request fires this skill:
 - Request is about ServiceNow CSM (case, account, contact, contract) → `csm-specialist`.
 - Request is about HRSD (HR case, Lifecycle Event, Employee Center) → `hrsd-specialist`.
 - Request is about ITOM Discovery, MID Server, CMDB Discovery, Service Mapping, Event Management → `itom-discovery-specialist`.
-- Request asks for code → after gateway, Technical Designer then Developer.
+- Request asks for code → after gateway, the Developer on a Verdict A; on a Verdict B, Technical Designer then Developer.
 - Request asks for table model or ACL matrix → after gateway, Technical Designer.
-- Request asks for a flow → after gateway, Technical Designer then Flow Designer Specialist.
-- Request asks for an integration → after gateway, Technical Designer then Integration Specialist.
+- Request asks for a flow → after gateway, the Flow Designer Specialist on a Verdict A; on a Verdict B, Technical Designer then Flow Designer Specialist.
+- Request asks for an integration → after gateway, the Integration Specialist on a Verdict A; on a Verdict B, Technical Designer then Integration Specialist.
 
 The gateway always fires first, even when downstream specialists are obviously needed. The gateway produces the constraints; the builders work within them.
 
@@ -66,7 +66,7 @@ You ground every factual claim about baseline ITSM behaviour in the Australia br
 | Verdict | When it applies | Citation discipline |
 |---|---|---|
 | **Verdict A** (fully covered by baseline) | No custom object was named in the request AND baseline covers the need. A builder may be dispatched. | Citations **preferred** — at least one citation per baseline construct claimed |
-| **Verdict B** (requires baseline extension) | Baseline covers the need only with a baseline EXTENSION — configuration of an existing object, not a new one. | Citations **required** — must cite the baseline construct being extended |
+| **Verdict B** (requires baseline extension) | Baseline covers the need only by adding a field to a baseline table. A configuration record on an existing table (an assignment rule, rows of an existing data lookup, a business rule, a notification, an ACL rule, a changed attribute of an existing dictionary entry) is Verdict A, its script included, unless the record is itself a §1.1 object: a new state value, a Connection & Credential Alias, a new sys_user_group structure, or an item on this skill's §1.1 list. A new table, one that extends a baseline table included, is a custom object: Verdict C (governance §1.1). | Citations **required** — must cite the baseline construct being extended |
 | **Verdict C** (§1.1 halt — a custom object was named or is the only viable path) | A custom object was NAMED in the request, **or** is the only viable path after the baseline evaluation. **The halt IS the verdict.** Part 2 carries "baseline covers it" when it does — that finding does not make the verdict A. Approval arrives as a separate user message; it is never inferred from the request. | Citations **required** — must cite the baseline alternatives evaluated and why they fall short |
 
 A request that NAMES a custom object can never be Verdict A, however well baseline answers it:
@@ -88,7 +88,7 @@ Per `governance/governance-rules.md` §1.1, you may not ratify any of the follow
 - A new sys_user_group structure where a baseline `assignment_group` pattern would suffice.
 - Any other major custom architectural object.
 
-**Your bias is baseline.** For every ITSM request, first evaluate whether baseline constructs can serve it. ITSM has unusually rich baseline coverage — assignment rules, Data Lookup Definitions, the `cmn_rota` on-call structure, `contract_sla` definitions, baseline notification records, baseline business rules. The default answer to "do we need a custom table for X" in ITSM is almost always **no**.
+**Your bias is baseline.** For every ITSM request, first evaluate whether baseline constructs can serve it. ITSM has unusually rich baseline coverage — assignment rules, the rows of the baseline data lookups (the Priority Lookup Rules, the Assignment Lookup Rules), the `cmn_rota` on-call structure, `contract_sla` definitions, baseline notification records, baseline business rules. The default answer to "do we need a custom table for X" in ITSM is almost always **no**.
 
 **Halt protocol — Verdict C trigger.** When a custom object was named in the request, or is the only viable path after the baseline evaluation against the citation discipline above, you emit Verdict C in Part 3 of the constraint envelope. Verdict C contains the four-part `OPEN QUESTION — CUSTOM OBJECT PROPOSAL` structure: baseline option evaluated and why it falls short, custom object proposed (smallest possible scope per the hierarchy), consequences of approval, alternatives if rejected. You do not propose the custom object as a fait accompli — the Chief Architect approves, rejects, or proposes a baseline alternative.
 
@@ -168,7 +168,7 @@ One of three verdicts. Citation discipline per the SKILL governance.
 
 ### Verdict B — Requires baseline extension
 
-[Smallest extension to baseline (preferred order: new field on baseline table > extension of baseline table in baseline scope > extension in pre-existing scoped app > new top-level table in pre-existing scoped app). Cite the baseline construct being extended.]
+[The new field(s) on the baseline table, each named with the table it is added to. Cite the baseline table being extended. A new table is not Verdict B: it is proposed under Verdict C, through the §1.1 hierarchy.]
 
 ### Verdict C — Requires custom object — §1.1 halt protocol
 
@@ -181,11 +181,11 @@ One of three verdicts. Citation discipline per the SKILL governance.
 
 ## Part 4 — Routing Recommendation
 
-One of three recommendations to the orchestrator:
+One of three recommendations to the orchestrator, one for each verdict:
 
-- **PROCEED — baseline configuration only.** No Technical Designer needed. The user request is satisfied by configuration (assignment rule edits, Data Lookup Definitions, dictionary changes, ACL rule edits, baseline notification record edits). Recommend dispatch to Developer for any minor configuration scripts, or skip dispatch entirely and instruct the user on the baseline configuration steps.
-- **PROCEED — dispatch to Technical Designer with constraints.** Technical Designer receives this envelope as the dispatch input. Parts 1–3 become hard constraints on the design.
-- **HALT — §1.1 custom-object proposal required.** Wait for user decision on the Verdict C proposal before dispatching anyone.
+- **Verdict A: PROCEED — baseline configuration only.** No Technical Designer needed. The user request is satisfied by configuration (assignment rule edits, rows of an existing data lookup, attribute changes to an existing dictionary entry, ACL rule edits, baseline notification record edits). Recommend dispatch to Developer for any minor configuration scripts, or skip dispatch entirely and instruct the user on the baseline configuration steps.
+- **Verdict B: PROCEED — dispatch to Technical Designer with constraints.** Technical Designer receives this envelope as the dispatch input. Parts 1–3 become hard constraints on the design.
+- **Verdict C: HALT — §1.1 custom-object proposal required.** Wait for user decision on the Verdict C proposal before dispatching anyone.
 - **Builders the request crosses:** the Integration Specialist first, for the connection, spoke, alias and auth, then the Flow Designer Specialist for the orchestration, then the Developer for any script; the Architect proposes them in that order (CLAUDE.md §7), and an outbound or inbound integration among them triggers the Security & GRC consult (§3.1). This Part 4 is an input to the Architect's routing, never the routing.
 - **Co-firing gateways:** A co-firing gateway fires in this turn too: load its skill, write its five-part Envelope beside this one, and reconcile them before the turn ends — the shared constructs named once, each layer's owner stated, any one Verdict C halting all of them. Each Envelope cites as a single-gateway turn does, `(citation: markdown/<area>/<page>.md)` on every baseline claim, never a bare file name. Each Envelope has its own grounding budget, eight pages by default, declared per Envelope in the answer. A co-firing gateway named with its Envelope not yet written did not fire. In each co-fired Envelope, Part 3 states the verdict in full: A names the baseline construct that covers the need and B the baseline construct it extends, each with its citation; C is the halt.
 
@@ -195,11 +195,11 @@ One of three recommendations to the orchestrator:
 
 Universal ITSM anti-patterns (always include if the relevant concept is in scope):
 
-- "Do not duplicate baseline assignment logic in custom BRs — use baseline assignment rules (Assignment Rule [`sysrule_assignment`] records *(citation: `markdown/it-service-management/on-call-scheduling/tables-oob-oncall.md`)*) or Data Lookup Definitions. *(citation: `markdown/it-service-management/incident-management/t_DefinAnAssignRuleIncidents.md`)*"
+- "Do not duplicate baseline assignment logic in custom BRs — use baseline assignment rules (Assignment Rule [`sysrule_assignment`] records *(citation: `markdown/it-service-management/on-call-scheduling/tables-oob-oncall.md`)*) or rows of the baseline Assignment Lookup Rules *(citation: `markdown/platform-administration/table-administration-and-data-management/t_DataLookupRule.md`)*. *(citation: `markdown/it-service-management/incident-management/t_DefinAnAssignRuleIncidents.md`)*"
 - "Do not extend `incident.state` with new values without a documented impact analysis on SLA definitions, notifications, reports, and Performance Analytics indicators that depend on the state vocabulary."
 - "Do not create a custom on-call structure — use baseline `cmn_rota`, `cmn_schedule_span`, `cmn_rota_member`. *(citation: `markdown/it-service-management/on-call-scheduling/c_OnCallSchedulingConcepts.md`)*"
 - "Do not duplicate baseline notification logic in a custom BR — extend the baseline notification record by adding a condition or modifying the template."
-- "Do not create a custom priority matrix table — use a Data Lookup Definition keyed on `impact` and `urgency` to produce `priority`."
+- "Do not create a custom priority matrix table — edit the rows of the baseline Priority Lookup Rules, already keyed on `impact` and `urgency`, to produce `priority`." *(citation: `markdown/it-service-management/incident-management/def-prio-lookup-rules.md`)*
 - "Do not query `task_sla` with `stage='completed'` — the baseline stage vocabulary uses `stage='complete'` (no -ed suffix). Verify against your instance's `task_sla` choice list before depending on either value.]
 
 ## Open Questions
@@ -273,11 +273,13 @@ A notification on assignment, on reopening or on auto-closure is not documented 
 
 ### Assignment and routing
 
-**Tables:** `sys_user_group` (assignment groups), `sys_user_grmember` (group membership), `sysrule_assignment` (assignment rules), `dl_definition` + `dl_matcher` (Data Lookup Definitions).
+**Tables:** `sys_user_group` (assignment groups), `sys_user_grmember` (group membership), `sysrule_assignment` (assignment rules), `dl_definition` (Data Lookup Definitions), and the lookup tables those definitions read: Assignment Data Lookup [`dl_u_assignment`], which holds the Assignment Lookup Rules, and Priority Data Lookup [`dl_u_priority`], which holds the Priority Lookup Rules *(citations: `markdown/application-development/servicenow-studio-classic/servicenow-studio-file-navigator-taxonomy.md`, `markdown/platform-administration/table-administration-and-data-management/t_DataLookupRule.md`)*. A new lookup table must extend Data Lookup Matcher Rules [`dl_matcher`] *(citation: `markdown/platform-administration/r_CreateCustomDataLookups.md`)*.
 
-**Resolution pattern:** when an incident is created, baseline assignment rules fire in `order` sequence. The first matching rule sets `incident.assignment_group`. If no rule matches, `incident.assignment_group` is left empty for manual assignment.
+**Group from the CI or its service offering:** the baseline business rule **Populate Assignment Group based on CI/SO** fills `incident.assignment_group` from the support group of the incident's configuration item, then of its service offering, when an incident is created or updated with **Assignment group** and **Assigned to** both empty *(citation: `markdown/it-service-management/incident-management/create-an-incident.md`)*. It ships with the ITSM CSDM Best Practice – Quebec plugin (`com.snc.best_practice.itsm_csdm.quebec`) and is available only for new customers *(citation: `markdown/it-service-management/service-operations-workspace/create-change-sow.md`)*, so verify on the instance that the rule exists and is active. To read another field, create the properties `com.snc.incident.ci_assignment_group.field_name` (a CI field) and `com.snc.incident.service_offering_assignment_group.field_name` (a service offering field), each holding the name of the field to read *(citation: `markdown/it-service-management/incident-management/create-an-incident.md`)*. A request for the group of the affected CI is this rule, configured if at all: Verdict A. Where the rule is absent, an assignment rule whose script returns the CI's support group gives the same result and is still Verdict A *(citation: `markdown/platform-administration/table-administration-and-data-management/r_BaselineAssignmentRulesExample.md`)*; the script evaluates to the `sys_id` of the group *(citation: `markdown/platform-administration/table-administration-and-data-management/t_AssignmentModuleRule.md`)*.
 
-**§1.1 hot spot:** custom routing tables are the second most common §1.1 violation. Data Lookup Definitions handle 90%+ of routing logic declaratively.
+**Resolution pattern:** assignment rules run when a task record is created or updated, and only while it is unassigned: they never overwrite a value already in `assigned_to` or `assignment_group` *(citation: `markdown/platform-administration/table-administration-and-data-management/c_AssignmentRulesModule.md`)*. They run by their Execution Order: a lower order takes precedence, on equal orders the first matching condition does, and only the first matching rule runs *(citation: `markdown/platform-administration/table-administration-and-data-management/t_AssignmentModuleRule.md`)*. The assignment rules engine and the data lookup engine run after the before business rules ordered below 1000 and before those ordered at 1000 or above, in no specific order between themselves *(citation: `markdown/platform-administration/table-administration-and-data-management/c_PrecBetweenAssignmentAndBusRules.md`)*, so check on the instance which of the CI/SO business rule, an assignment rule or a row of the Assignment Lookup Rules sets the group. The baseline example assignment rules include a catch-all **Service Desk** rule on incident, condition Active is true *(citation: `markdown/platform-administration/table-administration-and-data-management/r_BaselineAssignmentRulesExample.md`)*. If nothing fills it, `incident.assignment_group` is left empty for manual assignment.
+
+**§1.1 hot spot:** custom routing tables are the second most common §1.1 violation. The baseline Assignment Lookup Rules set **Assignment group** and **Assigned to** from rows matched on any of category, subcategory, configuration item and location, the lowest-order matching row running *(citation: `markdown/platform-administration/table-administration-and-data-management/t_DataLookupRule.md`)*: new rows are Verdict A. A new matcher column on their lookup table is a new field, Verdict B. A lookup on values that no existing lookup table holds needs a new table, which must extend `dl_matcher`: Verdict C *(citation: `markdown/platform-administration/r_CreateCustomDataLookups.md`)*.
 
 ## Adjacent Processes — Lightweight Coverage
 
@@ -302,7 +304,7 @@ Cite each when invoking in a Part 5 list.
 | Anti-pattern | Baseline alternative | Citation |
 |---|---|---|
 | Custom escalation table per group/tier | `cmn_rota` + `incident.assignment_group` + on-call resolution Script Include | `markdown/it-service-management/on-call-scheduling/c_OnCallSchedulingConcepts.md` |
-| Custom priority matrix table | Data Lookup Definition keyed on `impact` + `urgency` | `markdown/it-service-management/incident-management/def-prio-lookup-rules.md` |
+| Custom priority matrix table | The rows of the baseline Priority Lookup Rules, keyed on `impact` + `urgency` | `markdown/it-service-management/incident-management/def-prio-lookup-rules.md` |
 | Custom assignment-routing table | `sysrule_assignment` records | `markdown/it-service-management/incident-management/t_DefinAnAssignRuleIncidents.md` |
 | Custom change-approval matrix table | Change Approval Policy [`chg_policy_approval`]: one decision per scenario, each answered by an approval definition, applied by the Apply Change Approval Policy flow action | `markdown/it-service-management/change-management/change-approval-policy.md` |
 | Custom SLA pause/resume logic in BRs | Baseline `task_sla` pause/resume conditions on `contract_sla` definitions | `markdown/it-service-management/service-level-management/service-level-management-concepts.md` |
@@ -316,8 +318,8 @@ Cite each when invoking in a Part 5 list.
 The five most common §1.1 violation requests in ITSM, and the baseline alternative for each:
 
 1. **"We need a custom escalation table to track tier-1/tier-2/tier-3 escalation events."** → `incident.priority` + `cmn_rota` + `work_notes` for the event audit. **Verdict C** — the request names a custom table — and the halt's OPEN QUESTION proposes that baseline path.
-2. **"We need a custom priority matrix that considers impact, urgency, customer SLA tier, and time-of-day."** → Data Lookup Definition with multiple key fields, plus a Script Include for the time-of-day adjustment if needed. Verdict A.
-3. **"We need a custom routing rule table because our routing is too complex for assignment rules."** → Multiple Data Lookup Definitions in a Script Include orchestrator. **Verdict C** — the request names a custom table — and the halt's OPEN QUESTION proposes those Data Lookup Definitions.
+2. **"We need a custom priority matrix that considers impact, urgency, customer SLA tier, and time-of-day."** → The baseline Priority Lookup Rules, whose rows match `impact` and `urgency` *(citation: `markdown/it-service-management/incident-management/def-prio-lookup-rules.md`)*, take the SLA tier as a third matcher: a new column on their lookup table, Priority Data Lookup [`dl_u_priority`], the tier as a field on `incident` if it is not one already, and a Matcher Field Definition that joins the two *(citation: `markdown/platform-administration/r_CreateCustomDataLookups.md`)*. New fields and a configuration record: **Verdict B**. The time-of-day adjustment, if needed, is a before business rule ordered at 1000 or above, so that it runs after the data lookup engine *(citation: `markdown/platform-administration/table-administration-and-data-management/c_PrecBetweenAssignmentAndBusRules.md`)*. A separate lookup on values of its own would be a new table extending `dl_matcher`: Verdict C *(citation: `markdown/platform-administration/r_CreateCustomDataLookups.md`)*.
+3. **"We need a custom routing rule table because our routing is too complex for assignment rules."** → **Verdict C** — the request names a custom table. The halt's OPEN QUESTION evaluates the baseline first: the **Populate Assignment Group based on CI/SO** business rule *(citation: `markdown/it-service-management/incident-management/create-an-incident.md`)*, assignment rules, and rows of the baseline Assignment Lookup Rules *(citation: `markdown/platform-administration/table-administration-and-data-management/t_DataLookupRule.md`)*, then a new matcher column on Assignment Data Lookup [`dl_u_assignment`] (a field, Verdict B). A lookup on values that no existing lookup table holds would itself be a new table extending `dl_matcher` *(citation: `markdown/platform-administration/r_CreateCustomDataLookups.md`)*.
 4. **"We need a custom MIM communications table to track stakeholder updates."** → the Major Incident Workbench Communicate tab plus `work_notes` on the MIM incident *(citation: `markdown/it-service-management/incident-management/mi-workbench-communicate-tab.md`)*. **Verdict C** — the request names a custom table — and the halt's OPEN QUESTION proposes the Communicate tab.
 5. **"We need a custom audit table for incident state changes."** → `sys_history_set` is baseline. **Verdict C** — the request names a custom table — and the halt's OPEN QUESTION proposes `sys_history_set`.
 
@@ -339,8 +341,8 @@ After Technical Designer returns a spec for an ITSM-tagged design, you are re-di
 
 3. **§1.1 verdict alignment.** Does the spec respect your Part 3 verdict?
    - If you said Verdict A (fully baseline), does the spec contain any custom object? If yes — **§1.1 violation flagged.** It goes back to the builder.
-   - If you said Verdict B (extension only), does the spec introduce a new table or scoped app instead of extending? If yes — **§1.1 violation flagged.**
-   - If you said Verdict C (approved custom object), does the spec stay within the approved scope? If it exceeds (e.g., approved one new field, spec introduces a whole table) — **§1.1 violation flagged.**
+   - If you said Verdict B (new fields only), does the spec add anything beyond the field(s) Part 3 named — a new table (one that extends a baseline table included), a scoped app or a new state value? If yes — **§1.1 violation flagged.**
+   - If you said Verdict C (approved custom object), does the spec stay within the approved scope? If it exceeds (e.g., approved one table extending a baseline table, spec introduces a second table or a scoped app) — **§1.1 violation flagged.**
 
 4. **Anti-pattern check.** Does the spec contain any anti-pattern from your Part 5 list? Each hit is a §1.1 violation.
 
@@ -397,7 +399,7 @@ You stop and return a rejection when:
 | When | Hand-off |
 |---|---|
 | Verdict A, configuration only | **Developer** (for any minor scripts), or instruct user on baseline configuration |
-| Verdict A or B, needs design | **Technical Designer** with this envelope as constraints |
+| Verdict B, needs design | **Technical Designer** with this envelope as constraints |
 | Spec references flows | Technical Designer hands off to **Flow Designer Specialist** downstream |
 | Spec references integrations | Technical Designer hands off to **Integration Specialist** downstream |
 | Request touches CMDB | Add **CMDB & CSDM Specialist** as routing-time consult |

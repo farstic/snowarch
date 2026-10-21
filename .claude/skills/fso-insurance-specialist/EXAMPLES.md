@@ -1,6 +1,6 @@
 # FSO Insurance Specialist v1.0 — Worked Examples
 
-Three examples exercising each §1.1 verdict path. Each example shows the full 5-Part Constraint Envelope output for a realistic dispatch input. Read these alongside `SKILL.md` to understand the gateway's output format and depth. Client names are fictional.
+Three examples: Examples 1 and 2 take the Verdict A path — Example 2 shows where one new field would make it B — and Example 3 the Verdict C halt. Each example shows the full 5-Part Constraint Envelope output for a realistic dispatch input. Read these alongside `SKILL.md` to understand the gateway's output format and depth. Client names are fictional.
 
 ---
 
@@ -89,7 +89,7 @@ Co-fire: **CSM Specialist** (Consumer Service Portal, `csm_consumer`). Consults:
 
 ---
 
-## Example 2 — Verdict B (Baseline Extension)
+## Example 2 — Verdict A (configuration of the shipped approval engine and Document Processor)
 
 ### Dispatch input
 
@@ -138,11 +138,11 @@ Not documented: how the persona title output is mapped to an actual approver use
 
 ## Part 3 — §1.1 Baseline-First Verdict
 
-### Verdict B — Requires baseline extension
+### Verdict A — Fully covered by baseline
 
-The three-grade authority model is an **extension of the decision table** (additional rows per product and amount band, additional persona titles for the two manager levels) plus `sn_ins_claim.reserve_approval_is_sequential` / `sn_ins_claim.payment_approval_is_sequential` = true for the manager → head-of-claims chain. Distinguishing three adjuster grades needs either three persona titles in the decision-table output or a grade attribute on the adjuster's user/group — a **field or group-level extension**, not a table. The police-report rule is a **document list definition + a Mandatory list item bound to the bodily-injury service definition** through the *Insurance claims document rules* decision table, and the *Settle claim* step should sit after the document verification task — a playbook adjustment, not a new object.
+The three-grade authority model is **rows of the shipped decision table** *Claim reserve and payment approval rules* (Activity × Product × Amount band → the title of the persona who may approve), with a persona title per adjuster grade and one for each of the two manager levels, plus `sn_ins_claim.reserve_approval_is_sequential` / `sn_ins_claim.payment_approval_is_sequential` = true for the manager → head-of-claims chain. The police-report rule is a **document list definition + a Mandatory list item bound to the bodily-injury service definition** through the *Insurance claims document rules* decision table, and the *Settle claim* step should sit after the document verification task — a playbook adjustment. All of these are configuration records on existing tables, their scripts included: no new field, table, scoped app or state value. The verdict becomes B only if OQ-EV-1 finds that persona titles cannot tell the three grades apart, so that the grade has to be held in a new field on the adjuster's user or group record: that field would be the one schema addition.
 
-No new table, scoped app or state value is required. If the builder proposes an "adjuster authority" table, that is a §1.1 violation.
+If the builder proposes an "adjuster authority" table, that is a §1.1 violation.
 
 (citation: markdown/financial-services-operations/approval-engine-for-reserves-and-payments.md, markdown/financial-services-operations/insurance-claims/automating-other-claim-processes-using-decision-tables.md)
 
@@ -152,7 +152,7 @@ No new table, scoped app or state value is required. If the builder proposes an 
 
 ## Part 5 — Anti-Patterns to Block
 
-- Do not build a custom approval table or business rule — extend the decision table and properties (citation: markdown/financial-services-operations/approval-engine-for-reserves-and-payments.md).
+- Do not build a custom approval table or business rule — add rows to the decision table and set the properties (citation: markdown/financial-services-operations/approval-engine-for-reserves-and-payments.md).
 - Do not add a decision-table input without updating the executing subflow (citation: markdown/financial-services-operations/insurance-claims/update-insurance-claims-automation-using-decision-tables.md).
 - Do not enforce the police report with a custom client script on the settle action — use a Mandatory document list item (citation: markdown/financial-services-operations/doc-processor-associate-document-list-items-to-category.md).
 - Do not create a custom "bodily injury" incident table when `sn_ins_claim_injury` covers the injury data (citation: markdown/financial-services-operations/insurance-claims-core-tables.md).

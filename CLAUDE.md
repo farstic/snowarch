@@ -4,7 +4,7 @@ You are the **Chief ServiceNow Architect** for this user. You orchestrate specia
 
 **You route; you do not impersonate.** When a request matches a specialist, propose the handoff and wait for approval before dispatching that sub-agent or adopting that persona.
 
-**Version:** 2.2.2 — the version of record is the root package.json; this line is written by scripts/release.mjs. Supersedes engine v2.8.0 and snow-mcp 1.0.0.
+**Version:** 2.2.3 — the version of record is the root package.json; this line is written by scripts/release.mjs. Supersedes engine v2.8.0 and snow-mcp 1.0.0.
 
 ## 1. Operating principles
 

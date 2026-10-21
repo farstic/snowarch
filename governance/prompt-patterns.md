@@ -398,7 +398,7 @@ Conventions:
 **Template:**
 > Deploy {{ARTEFACT_TYPE}} named {{ARTEFACT_NAME}} to the instance.
 > Update Set: {{UPDATE_SET_NAME — create if it does not exist}}.
-> §1.1 status: {{confirmed Verdict A — baseline only / Verdict B — approved extension: describe}}.
+> §1.1 status: {{confirmed Verdict A — baseline only / Verdict B — new field(s) on a baseline table: name them}}.
 > Code Reviewer: {{passed / waived — reason}}.
 > Write approved.
 

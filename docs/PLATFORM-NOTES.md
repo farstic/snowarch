@@ -381,8 +381,8 @@ run that day (ARC-09-C172)
   defaults included `display_output=true`.
 - **An unnamed link is refused.** An `sn_aia_agent_tool_m2m` insert without `name` is refused by a data policy,
   "Data Policy Exception: The following fields are mandatory: Name", with HTTP 403. The same insert with the tool's
-  name was created. AI Agent Studio names a link after its tool. Observed on `tgdev`, Brazil patch 0, 2026-10-17, on
-  v2.2.0-rc.3, where the instance's own text first reached the caller (ARC-09-C176, ARC-09-C180).
+  name was created. AI Agent Studio names a link after its tool. Observed on a Brazil-family PDI, patch 0, 2026-10-17,
+  on v2.2.0-rc.3, where the instance's own text first reached the caller (ARC-09-C176, ARC-09-C180).
 - **A workflow's insert creates a version and nothing else.** An insert into `sn_aia_usecase` created an
   `sn_aia_version` "V1" (`state=published`, empty `snapshot`) and no `sn_aia_team`. The workflow has no agents
   until a team is created, set on `sn_aia_usecase.team`, and given `sn_aia_team_member` rows.
@@ -415,10 +415,10 @@ Autonomous, in `markdown/intelligent-experiences/add-tool-aia-new.md`. Not docum
 `australia`): `sn_aia_version` and its states, the automatic records, the snapshot rewrite, the absent team, the
 refused unnamed link, the Studio routes and the defaults — observed behaviour, on a family one ahead of the corpus;
 verify on the instance's family.
-**Evidence:** the owner's trial record, which is engagement-local and not committed; the owner's continued run on
-`tgdev`, 2026-10-17, engagement-local, summarised by the Architect in the engagement folder and not committed; the
-owner's v2.2.0-rc.2 and rc.3 checks on `tgdev`, 2026-10-17, whose session transcript is engagement-local; and
-engineering record 2.2.0-rc.1-live-sitting, the run with the fixed tools.
+**Evidence:** the owner's trial record, which is engagement-local and not committed; the owner's continued run on a
+Brazil-family PDI, 2026-10-17, engagement-local, summarised by the Architect in the engagement folder and not
+committed; the owner's v2.2.0-rc.2 and rc.3 checks on the same PDI, 2026-10-17, whose session transcript is
+engagement-local; and engineering record 2.2.0-rc.1-live-sitting, the run with the fixed tools.
 **Engine consequence:** since ARC-09-C165 `snow_ai_ai_agent_add` reads the configuration and the version back
 rather than creating them, and reports a missing one as a warning; `active: false` modifies the configuration.
 `snow_ai_agentic_workflow_add` creates the team first and sets it on the workflow's insert: 2 + N inserts and no
@@ -437,8 +437,9 @@ set until it is switched back. A browser session already open when the preferenc
 update set until the user logged in again (observed on Brazil patch 0, 2026-10-17).
 **Grounding:** none in ServiceNowDocs (`markdown/application-development/system-update-sets/` for the baseline
 concept); observed behaviour.
-**Evidence:** the owner's trial record, which is engagement-local and not committed, and the owner's continued run on
-`tgdev`, 2026-10-17, engagement-local, summarised by the Architect in the engagement folder and not committed.
+**Evidence:** the owner's trial record, which is engagement-local and not committed, and the owner's continued run on a
+Brazil-family PDI, 2026-10-17, engagement-local, summarised by the Architect in the engagement folder and not
+committed.
 **Engine consequence:** `snow_us_capture_target_set` already returns `previous`, the update set the preference named
 before the call (ARC-09-C127), so a second call can point capture back. Offering that restore at the end of a build
 sequence belongs to the Architect, in `governance/mcp-protocols.md` (ARC-09-C166), which also says that a browser
@@ -464,15 +465,15 @@ then data access with **Approved roles** for a dynamic user), and
 configuration tables. Not documented in the bundled corpus (branch `australia`): the pre-fill, the dialog, the records
 the save creates, the workflow's activation and the search lag — observed behaviour, on a family one ahead of the
 corpus; verify on the instance's family.
-**Evidence:** the owner's continued run on `tgdev`, 2026-10-17, engagement-local, summarised by the Architect in the
-engagement folder and not committed.
+**Evidence:** the owner's continued run on a Brazil-family PDI, 2026-10-17, engagement-local, summarised by the
+Architect in the engagement folder and not committed.
 **Engine consequence:** none in the tools — no tool sets access rules. `governance/mcp-protocols.md` says the Studio
 step is a write with its own question, and the Now Assist Specialist says to remove `admin` from the approved roles and
 to expect the two records in the update set (ARC-09-C172).
 
 ## PN-20 — A Protected Script Include's script does not come back over the Table API
 
-**Applies to:** `sys_script_include` with `sys_policy` = `protected` · Brazil patch 0 · measured on `tgdev`, 2026-10-17
+**Applies to:** `sys_script_include` with `sys_policy` = `protected` · Brazil patch 0 · measured on a PDI, 2026-10-17
 **Behaviour:** The `sn_aia` Script Includes AgentToolM2MDao and AgentVersionDao, read with `snow_core_record_read`
 and `snow_core_records_query`, came back without a `script` field: not empty, absent. AgentToolM2MDao's `sys_policy`
 reads `protected`. The tools pass on what the instance answers (measured in the server: a 5 KB `script` comes back
@@ -481,15 +482,15 @@ whole, and nothing removes a field), so the platform withholds it.
 … Customers who download the script include cannot see the contents of the script field." That page does not name
 the `sys_policy` column; verify it on the instance. The record's `access` value, `package_private` ("Accessible
 from: This application scope only", lines 93–103), governs calling it from another scope, not reading it.
-**Evidence:** the owner's read on `tgdev`, 2026-10-17, which is engagement-local and not committed.
+**Evidence:** the owner's read on a Brazil-family PDI, 2026-10-17, which is engagement-local and not committed.
 **Engine consequence:** a design cannot read a Protected script and must not depend on its contents. Since
 ARC-09-C178 a read that passes `fields` names the requested fields the instance did not return, as
 `fields_not_returned`.
 
 ## PN-21 — A mandatory field over the REST Table API is a data policy's, not the dictionary's
 
-**Applies to:** every table a create writes · every family · the documented rule, and observed on `tgdev`, Brazil patch
-0, 2026-10-17 (ARC-09-C183), and on `pditestdoit`, the same PDI, 2026-10-19
+**Applies to:** every table a create writes · every family · the documented rule, and observed on a Brazil-family PDI,
+patch 0, 2026-10-17 (ARC-09-C183), and on the same PDI, 2026-10-19
 **Behaviour:**
 - **The dictionary's Mandatory is a form rule.** "Using a dictionary entry to make a field mandatory does not work
   when using web services or background scripts. You can use a data policy instead." A create over the Table API is
@@ -512,8 +513,8 @@ bundled corpus; they were confirmed on Brazil patch 0, 2026-10-19:
   `model_id`, `enforce_ui`, `apply_import_set`, `apply_soap`, `reverse_if_false`, `sys_policy` and `sys_overrides`;
 - `sys_data_policy_rule` has `sys_data_policy`, `field` and `mandatory`, among `table` and `disabled`.
 
-**Evidence:** the owner's v2.2.0-rc.3 check on `tgdev`, 2026-10-17, which is engagement-local and not committed, and
-engineering record 2026-10-19-itsm-sweep, step 0b.
+**Evidence:** the owner's v2.2.0-rc.3 check on a Brazil-family PDI, 2026-10-17, which is engagement-local and not
+committed, and engineering record 2026-10-19-itsm-sweep, step 0b.
 **Engine consequence:** since ARC-09-C183 every create reads the active data policies of its table and the tables it
 extends, once per table per session, and refuses a field an unconditional rule requires and the create would not send,
 before anything is written. A conditional policy, a field the dictionary defaults and a check it could not make are
@@ -522,8 +523,8 @@ instance's own text is shown (ARC-09-C176, ARC-09-C182).
 
 ## PN-22 — A date-time sent as an ISO string is stored as the date alone
 
-**Applies to:** any date-time field a write sets, e.g. `incident.resolved_at` · Brazil patch 0 · observed on
-`pditestdoit`, 2026-10-19 (ARC-09-C184)
+**Applies to:** any date-time field a write sets, e.g. `incident.resolved_at` · Brazil patch 0 · observed on a PDI,
+2026-10-19 (ARC-09-C184)
 **Behaviour:** `snow_inc_incident_resolve` sent `resolved_at` as `new Date().toISOString()` — `2026-10-19T06:31:…Z`.
 The write was accepted, and `resolved_at` was stored as `2026-10-19 00:00:00`. `calendar_stc` came out negative
 (−23217) and `calendar_duration` at 1970-01-01 17:33:03, so every duration measured from it is wrong.
@@ -538,7 +539,7 @@ trigger. A date a caller passes is sent as given.
 
 ## PN-23 — A close code is the instance's own list
 
-**Applies to:** `incident.close_code` and its choices · Brazil patch 0 · observed on `pditestdoit`, 2026-10-19
+**Applies to:** `incident.close_code` and its choices · Brazil patch 0 · observed on a PDI, 2026-10-19
 **Behaviour:** the instance listed 20 active `incident.close_code` choices, and "Solved (Permanently)" was not among them,
 although the corpus names it as an example. A resolve with a code the list lacks is not a resolve the instance expects.
 **Grounding:** the corpus names "Solved (Permanently)" as a close code

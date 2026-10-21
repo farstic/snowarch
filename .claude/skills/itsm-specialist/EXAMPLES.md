@@ -29,8 +29,8 @@ This request touches three core baseline ITSM processes: incident lifecycle, on-
 
 ### Incident lifecycle (relevant subset)
 
-- `incident.priority` is set to 1 (Critical) or 2 (High) by Data Lookup Definition keyed on `impact` and `urgency` at insert time.
-- `incident.assignment_group` is set by baseline assignment rules, also fired at insert.
+- `incident.priority` is set to 1 (Critical) or 2 (High) by the baseline Priority Lookup Rules from the incident's `impact` and `urgency` *(citation: `markdown/it-service-management/incident-management/def-prio-lookup-rules.md`)*.
+- `incident.assignment_group` is set by the baseline business rule **Populate Assignment Group based on CI/SO**, from the support group of the CI, then of the service offering *(citation: `markdown/it-service-management/incident-management/create-an-incident.md`)*, or by baseline assignment rules, which run on an unassigned record by their Execution Order *(citation: `markdown/platform-administration/table-administration-and-data-management/c_AssignmentRulesModule.md`)*.
 - `incident.state` transitions through New (1) → In Progress (2). The "not acknowledged" condition maps to "state remains New and `assigned_to` is not populated, or `assigned_to` is populated and the assignee has added nothing to `work_notes`".
 - *(citation: `markdown/it-service-management/incident-management/reference-section-for-incident-management.md`)*
 
@@ -146,7 +146,7 @@ This request touches incident lifecycle, priority/impact handling, and Service-O
 
 ### Incident priority handling (baseline)
 
-- Baseline `incident.priority` is a 1–5 derived field, calculated from `incident.impact` (1–3) and `incident.urgency` (1–3) via the baseline Data Lookup Definition `Priority Lookup` (which can be reconfigured per engagement).
+- Baseline `incident.priority` is a 1–5 derived field, calculated from `incident.impact` (1–3) and `incident.urgency` (1–3) via the baseline Priority Lookup Rules, whose rows can be reconfigured per engagement.
 - Both `impact` and `urgency` are choice fields with baseline labels: Impact = High/Medium/Low, Urgency = High/Medium/Low.
 - *(citation: `markdown/it-service-management/incident-management/reference-section-for-incident-management.md`)*
 - *(citation: `markdown/it-service-management/incident-management/def-prio-lookup-rules.md`)*
@@ -162,13 +162,13 @@ The request introduces a new dimension — "business severity" — that is conce
 
 | Table | Action | Reasoning |
 |---|---|---|
-| `incident` | **Add one new field** — `u_business_severity` (Integer or Choice) | Smallest possible scope per §1.1 hierarchy. A new field on a baseline table is the preferred extension. |
+| `incident` | **Add one new field** — `u_business_severity` (Integer or Choice) | A new field on a baseline table: the one schema addition Verdict B allows, with no §1.1 halt. |
 | `cmdb_ci_service` | Read only — no extension needed | Service Owner resolution path is already in place. |
 | `sys_user_grmember` | Read only | Service Owner group membership lookup. |
-| Baseline business rule on `incident` | New record (configuration, not extension) | To restrict who can update `u_business_severity` to Service Owners. |
-| ACL rule on `incident.u_business_severity` | New record (configuration, not extension) | Same role-gating intent — UI-level enforcement complements server-side BR. |
+| Business rule on `incident` | New record: configuration, Verdict A by itself, its script included | To restrict who can update `u_business_severity` to Service Owners. |
+| ACL rule on `incident.u_business_severity` | New record: configuration, Verdict A by itself | The same role gate: an ACL restricts access to the data itself *(citation: `markdown/platform-security/access-control/access-control-rules.md`)*; the business rule repeats the check as a defensive layer. |
 
-**Field design (Verdict B proposal):**
+**Field design (Verdict B):**
 
 ```
 Field name:      u_business_severity
@@ -196,29 +196,24 @@ The `u_` prefix is the engagement's convention for non-scoped custom fields on b
 |---|---|
 | **Reuse `incident.impact`** | `impact` is technical impact (system availability), not business impact (revenue). Mixing them blurs reporting and confuses ITIL practitioners. |
 | **Reuse `incident.urgency`** | `urgency` is "how quickly does this need to be resolved" — a technical-process concept. Business severity is not about resolution speed, it's about revenue/customer-impact assessment. |
-| **Compound priority field** | The baseline `Priority Lookup` already takes two dimensions. Adding a third dimension to the lookup would force every existing `impact`/`urgency` combination to be re-evaluated with a third axis — not a minor change, and changes baseline `priority` semantics globally. |
+| **Compound priority field** | The request rules it out: business severity "should drive escalation timing, not technical priority". It is not smaller either: the baseline Priority Lookup Rules match on two fields, `impact` and `urgency`, and a third needs the same new field on `incident` as its source, a new matcher column on Priority Data Lookup [`dl_u_priority`] and a Matcher Field Definition *(citation: `markdown/platform-administration/r_CreateCustomDataLookups.md`)*, and it changes `priority` for every incident *(citation: `markdown/it-service-management/incident-management/def-prio-lookup-rules.md`)*. |
 | **Use `incident.business_impact` (Australia release family note)** | This field **does not exist** as a baseline integer on `incident` in Australia. The MIM workbench has a separate `incident.business_impact` field but it's a string narrative, not a structured severity. Not suitable for driving escalation timing logic. *Citation availability: limited — verify against engagement's instance.* |
-| **Use a related Service Owner attestation table** | This would be a new table, which is a more invasive extension than a single field. Violates the §1.1 preference hierarchy. |
+| **Use a related Service Owner attestation table** | A new table is a custom object: Verdict C and the §1.1 halt (governance §1.1). The field holds the value without one. |
 
-The smallest viable extension is **a new integer/choice field on the baseline `incident` table**.
+The need is met by **one new integer/choice field on the baseline `incident` table**; everything else is configuration.
 
-### Custom object proposed (smallest possible scope)
-
-- **One new field on `incident`:** `u_business_severity` (Choice, 1–4).
-- **One new ACL** restricting write to Service Owners.
-- **One new Business Rule** (server-side enforcement, complements ACL).
-- **One Data Lookup Definition** mapping `u_business_severity` to an escalation timing parameter (a system property or a `sys_choice` value the scheduled-job pattern from Example 1 can read).
+### New field proposed\n\n- **One new field on `incident`:** `u_business_severity` (Choice, 1–4) — the one schema addition, and the reason the verdict is B *(citation: `markdown/it-service-management/incident-management/incident-mangmt-data-model.md`)*.\n\n### Configuration alongside the field (Verdict A by itself, scripts included)\n\n- **One new ACL** restricting write to Service Owners.\n- **One new Business Rule** (server-side enforcement, complements ACL).\n- - **One system property per business-severity level**, holding its escalation timing, which the scheduled-job pattern from Example 1 reads. System properties suit configuration that changes rarely, no more than once or twice a month *(citation: `markdown/platform-administration/t_AddAPropertyUsingSysPropsList.md`)*. Not a data lookup: one on these values would need its own table extending `dl_matcher`, a new table (Verdict C) *(citation: `markdown/platform-administration/r_CreateCustomDataLookups.md`)*.
 
 No new tables. No new scoped app. No new state values. The "extension" is a column addition on a baseline table.
 
-### Consequences of approval
+### Consequences of the new field
 
 - **Data model:** `+1 field` on `incident`. Backfill consideration — existing ~200K incidents will have `u_business_severity` = NULL until a backfill script or accept-NULL-as-implicit-Low policy is decided.
 - **Deployment:** No new update set or scoped app required. Goes in the engagement's existing customisation update set.
 - **Support cost:** Service Owners need training on the field and its meaning. Minor.
 - **Platform-upgrade risk:** Low. `u_` prefix isolates from baseline-field naming. Upgrade-safe.
 
-### Alternatives if rejected
+### Alternatives without the new field
 
 - **Degraded design:** Use `incident.urgency` for business severity, document the semantic deviation in operational documentation, accept that ITIL purists will object. (Not recommended — creates reporting confusion.)
 - **Deferred functionality:** Document business severity in `work_notes` only ("Business severity: Critical — revenue stoppage observed"), no structured field. Loses queryability and reporting.
@@ -232,21 +227,21 @@ Technical Designer receives this envelope and produces:
 - The full field-extension spec for `incident.u_business_severity` (type, label, choices, default, mandatory).
 - The ACL rule (target table=`incident`, field=`u_business_severity`, operation=write, role=Service Owner role, condition=Service Owner is mapped to this incident's `cmdb_ci`).
 - The Business Rule (server-side enforcement, same logic as ACL but as a defensive layer).
-- The Data Lookup Definition (`u_business_severity` → escalation timing parameter).
+- The system properties (`u_business_severity` level → escalation timing).
 - The escalation scheduled job (combined with the Example 1 pattern if both are active).
 
 ## Part 5 — Anti-Patterns to Block
 
 - **Do not create a custom `business_severity_log` table** to track changes to the field. `sys_history_set` baseline audit captures field-level changes on `incident` automatically when field auditing is enabled in the dictionary. *(citation: `markdown/platform-security/audit-mgmt-console.md`)*
 - **Do not reuse `incident.impact` or `incident.urgency`** for business severity. The two ITIL dimensions are well-defined; conflating them with revenue-impact causes long-term reporting confusion.
-- **Do not extend `incident.priority` directly** — `priority` is derived. Extending it would require modifying the Data Lookup Definition globally and risk breaking baseline reports and Performance Analytics indicators.
+- **Do not extend `incident.priority` directly** — `priority` is derived. Changing it means altering the baseline Priority Lookup Rules, or disabling the **Priority is managed by Data Lookup - set as read-only** UI policy and writing business logic in their place *(citation: `markdown/it-service-management/incident-management/def-prio-lookup-rules.md`)*; either changes `priority` for every incident and risks breaking baseline reports and Performance Analytics indicators.
 - **Do not hardcode the Service Owner role name** in the ACL condition — reference the role via name lookup or sys_id with a comment explaining why.
 - **Do not implement Service Owner resolution as a custom Script Include** if the engagement already has a working "incident → cmdb_ci → service → Service Owner" path. Reuse it.
 - **Do not skip backfill consideration** — Technical Designer must decide the strategy (NULL = implicit Low, vs explicit backfill script).
 
 ## Open Questions
 
-OQ-EV-1. **Scope convention.** The proposal uses `u_` prefix on a baseline-scope field. Confirm whether the engagement has a standing rule for `u_` vs scoped-app custom fields. If a scoped app is preferred, the field takes the app's namespace in place of `u_`, `x_<vendor>_<app>_business_severity` *(citation: `markdown/application-development/r_ExampleNamespaceIdentifiers.md`)*, and ACL/BR records move into the scoped app.
+OQ-EV-1. **Scope convention.** The proposal uses `u_` prefix on a baseline-scope field. Confirm whether the engagement has a standing rule for `u_` vs scoped-app custom fields. If an existing scoped app is preferred, the field takes the app's namespace in place of `u_`, `x_<vendor>_<app>_business_severity` *(citation: `markdown/application-development/r_ExampleNamespaceIdentifiers.md`)*, and ACL/BR records move into the scoped app. A new scoped app would be a custom object: Verdict C.
 OQ-EV-2. **Service Owner role identity.** The dispatch envelope names `u_service_owner` as the role. Confirm this is the engagement's actual role name and that it's already populated for the relevant CIs.
 OQ-EV-3. **Backfill strategy.** NULL = implicit Low, or explicit Service-Owner-driven backfill exercise? Recommend defaulting to NULL with a future backfill story if reporting needs require it.
 OQ-EV-4. **Read access.** Should `u_business_severity` be visible to all `itil` users (read-only) or restricted to Service Owners? Recommend read-visible-to-itil, write-restricted-to-Service-Owner.
@@ -255,9 +250,9 @@ OQ-EV-5. **Escalation-timing linkage.** The request says business severity "driv
 
 ### Explanation
 
-Verdict B is the second most common verdict — the request genuinely needs *something* beyond baseline, but the smallest possible something. The envelope demonstrates:
+Verdict B is the second most common verdict — the request needs one schema addition, a new field on a baseline table, and everything else is configuration. The envelope demonstrates:
 
-- **Part 3's structured baseline evaluation** — five alternatives considered, each with explicit "why it falls short" before proposing the extension. This is the §1.1 halt-protocol structure for an approved-rather-than-rejected extension.
+- **Part 3's structured baseline evaluation** — five alternatives considered, each with an explicit "why it falls short", before the field is named. This is the citation discipline Verdict B requires, not a §1.1 halt: a new field on a baseline table needs no custom-object approval, so Part 4 proceeds. Had the need called for a new table — the attestation table, or a data lookup on values of its own — the verdict would be C (Example 3).
 - **Part 3's note on `incident.business_impact`** — flagged as "limited citation availability; verify against engagement's instance" because the field exists in newer release families but behaves differently in Australia. This is exactly the release-family precision Suggestion (b) called for.
 - **Part 4's hand-off to Technical Designer** — Technical Designer now has a clear spec to design against. The envelope did not design the ACL matrix or write the BR; that's Technical Designer's job downstream.
 - **Part 5's anti-patterns** include "do not create a custom `business_severity_log` table" — pre-empting the most likely §1.1 violation a builder might introduce when implementing this.
