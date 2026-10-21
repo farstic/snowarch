@@ -199,8 +199,16 @@ export async function runSteps({ root, ctx, state, from = null, onLine = () => {
       return { code: EXIT_INTERRUPTED, summary, state, stoppedAt: step.id, live };
     }
 
+    // ARC-09-C213 — THE RECORDED HASH DESCRIBES THE INPUTS AS THE STEP LEFT THEM. B06 migrates the store, one of its
+    // own inputs, and recorded the hash it computed before: the next bootstrap ran it again, and C196's at-tag plan told
+    // a finished move it had steps to run. Hashed again after a step that ran to its end; for a step that does not
+    // touch its inputs the two are equal. The cache test above still compares the hash taken before a run.
+    let left = hash;
+    if (hash !== null && (result.status === 'ok' || result.status === 'warn')) {
+      try { left = hashOf(step, ctx); } catch { left = hash; }
+    }
     const entry = { status: result.status === 'warn' ? 'warn' : result.status,
-      inputsHash: hash, finishedAt: now().toISOString(), durationMs,
+      inputsHash: left, finishedAt: now().toISOString(), durationMs,
       // The checkout's version AT THE MOMENT THIS STEP RAN. `state.engineVersion` is write-once —
       // `emptyState` sets it at install and nothing updates it — so it names the version a
       // checkout was FIRST installed at, not the one it is on. Only a per-step value can say

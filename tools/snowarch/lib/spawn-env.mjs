@@ -21,6 +21,15 @@ import { stateRoot } from './config.mjs';
 export const SESSION_VARIABLES = Object.freeze(['CLAUDE_PROJECT_DIR']);
 
 /**
+ * ARC-09-C190 — git, told never to ask: no terminal prompt, no askpass program, no Git Credential Manager window. A
+ * credential a helper already stores still applies; only the question is gone, so a remote that wants one it does not
+ * have fails at once with git's own reason, instead of waiting on a prompt nobody sees until a timeout. The one JS
+ * definition (the server's TypeScript keeps its own, in packages/snowarch/src/licence/refresh.ts).
+ */
+export const NO_PROMPT_ENV = Object.freeze({ GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '', SSH_ASKPASS: '',
+  GCM_INTERACTIVE: 'never' });
+
+/**
  * `process.env` plus what the caller wants, with the session variables pinned to this checkout.
  *
  * `extra` wins over the inherited environment, and the session variables win over both: a caller

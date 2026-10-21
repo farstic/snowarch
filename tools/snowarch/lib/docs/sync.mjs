@@ -381,7 +381,7 @@ export function resolveMode(root, requested) {
     try {
       const recorded = JSON.parse(readFileSync(statePath, 'utf8'))?.docs?.mode;
       if (recorded === 'skip') {
-        throw new SyncError('.local/bootstrap-state.json records docs.mode "skip": skip means do not '
+        throw new SyncError('.local/bootstrap-state.json records `docs.mode` "skip": skip means do not '
           + 'call sync. Run with an explicit --mode sparse or --mode full to override.', EXIT.git);
       }
       if (recorded === MODE.sparse || recorded === MODE.full) return recorded;

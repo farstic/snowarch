@@ -29,7 +29,7 @@ the doctor, the live wizard and the MCP server are what wait for Node.
 ### Path A — terminal first
 
 ```sh
-git -c advice.detachedHead=false clone --branch v2.2.1 https://github.com/farstic/snowarch.git && cd snowarch && ./bootstrap.sh
+git -c advice.detachedHead=false clone --branch v2.2.2 https://github.com/farstic/snowarch.git && cd snowarch && ./bootstrap.sh
 ```
 
 **The `--branch` is not optional, and it names a release.** A plain `git clone` checks out this repository's default branch, which is not a release line and is a long way behind — cloning it installs a development tree with none of the released fixes. The tag above is the current release, and it is written by the release itself, so this page never names a version that has not shipped. The `-c advice.detachedHead=false` is there because a release tag is a *tag*: without it
@@ -43,7 +43,7 @@ you have one.
 On Windows, three lines instead — or double-click `bootstrap.cmd` in the folder:
 
 ```bat
-git -c advice.detachedHead=false clone --branch v2.2.1 https://github.com/farstic/snowarch.git
+git -c advice.detachedHead=false clone --branch v2.2.2 https://github.com/farstic/snowarch.git
 cd snowarch
 .\bootstrap.cmd
 ```
@@ -122,9 +122,9 @@ mkdir my-engagement && cd my-engagement && claude
 Accept the workspace-trust dialog, then paste exactly this:
 
 > Install the AI ServiceNow Architect from https://github.com/farstic/snowarch into
-> this folder, from release tag v2.2.1.
+> this folder, from release tag v2.2.2.
 
-Claude runs two commands — `git -c advice.detachedHead=false clone --branch v2.2.1 https://github.com/farstic/snowarch.git .` and
+Claude runs two commands — `git -c advice.detachedHead=false clone --branch v2.2.2 https://github.com/farstic/snowarch.git .` and
 `./bootstrap.sh --mode design --yes --skip-claude-check` — asking your permission for each unless the
 session already allows them. They are written out here for a reason: if Claude proposes anything else
 — cloning into a *subfolder* is the common variation — paste them yourself and you are back on the

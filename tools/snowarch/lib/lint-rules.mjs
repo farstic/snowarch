@@ -39,9 +39,9 @@ export function lintSkills({ root, skillsRoot = join(root, '.claude/skills'),
         fail.push(`SK-03 ${rel}: unquoted ": " in ${k} — quote the scalar`);
       }
     }
-    if ('version' in data && !versionAllow.has(d)) fail.push(`SK-04 ${rel}: move version under metadata.version`);
+    if ('version' in data && !versionAllow.has(d)) fail.push(`SK-04 ${rel}: move version under \`metadata.version\``);
     if (data.metadata?.version && !/^\d+\.\d+\.\d+$/.test(data.metadata.version)) {
-      fail.push(`SK-04 ${rel}: metadata.version "${data.metadata.version}" is not semver`);
+      fail.push(`SK-04 ${rel}: \`metadata.version\` "${data.metadata.version}" is not semver`);
     }
     for (const k of Object.keys(data)) {
       if (!ALLOWED_TOP_LEVEL.has(k)) fail.push(`SK-05 ${rel}: unknown frontmatter key "${k}"`);

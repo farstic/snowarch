@@ -330,7 +330,7 @@ export async function runDoctor({ root, config, registry = engineRegistry(), sec
     // `full: false` — the header takes `version`, `tag.name` and `contractSha`. The tag's message,
     // the shallow hint and the commit state are for the human lines and cost three more `git`
     // spawns, on the path the SessionStart banner runs before a session's first word.
-    engine: engineBlock(results, versionInfo(root, { full: false }),
+    engine: engineBlock(results, versionInfo(root, { full: false, config }),
       // ARC-08-C19 — when E-12 did not run, `engine.docs` came back null and the panel's `Docs:`
       // line vanished on the one run SKILL.md mandates. The fallback is the CONFIGURED corpus plus
       // one bounded `rev-parse`; every field it cannot know stays null, which schema v1 already

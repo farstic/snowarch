@@ -73,7 +73,7 @@ export const REASONS = Object.freeze({
   'payload-key': "a key of an external system's payload, or an input or output of an example action",
   'example-role': 'a role the example invents',
   'script-variable': 'a variable, parameter or property inside example code',
-  'script-code': 'a variable and its member written in a sentence about example code (current.approval, gr.next); a dotted name only, whose left half has no underscore',
+  'script-code': 'a variable and its member written in a sentence about example code (`current.approval`, `gr.next`); a dotted name only, whose left half has no underscore',
   'example-name': 'any other name the example invents: a group, a metric, an index, a file, a value',
 });
 
@@ -322,7 +322,7 @@ export function checkAllowList(list, roster, { prefixes = PLATFORM_PREFIXES, glu
     }
     const dottedId = e.identifier.includes('.');
     const camelId = !dottedId && CAMEL_NAME.test(e.identifier);
-    if (e.reason === 'script-code' && !dottedId) { fail('a script-code entry names a dotted name: current.approval, not a bare word'); continue; }
+    if (e.reason === 'script-code' && !dottedId) { fail('a script-code entry names a dotted name: `current.approval`, not a bare word'); continue; }
     if (dottedId) {
       // The dotted arm's one excuse. A table written with a word is a claim about the table, so the
       // left half must be a variable — no underscore — and the file must write the pair.

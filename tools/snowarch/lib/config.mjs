@@ -27,7 +27,8 @@ export function loadConfig(from = root) {
   const config = JSON.parse(readFileSync(p, 'utf8'));
   const missing = REQUIRED.filter(([a, b]) => config?.[a]?.[b] === undefined).map((k) => k.join('.'));
   if (missing.length > 0) {
-    throw new Error(`engine.config.json is missing: ${missing.join(', ')}`);
+    // ARC-09-C209 — the keys in backticks: printed through the redactor, a bare `docs.pin` reads as a person's name.
+    throw new Error(`engine.config.json is missing: ${missing.map((k) => `\`${k}\``).join(', ')}`);
   }
   return config;
 }

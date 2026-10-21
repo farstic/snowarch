@@ -33,7 +33,7 @@ import { localDir, storePath } from '../local-paths.mjs';
 import { EXIT_FAIL, EXIT_OK, EXIT_PREREQ, EXIT_USAGE } from '../exit.mjs';
 import { branchState, describe, git, isShallow, versionTag } from '../git.mjs';
 import { askOnce, isYes } from '../ask.mjs';
-import { childEnv } from '../spawn-env.mjs';
+import { childEnv, NO_PROMPT_ENV } from '../spawn-env.mjs';
 import { loadConfig, root as defaultRoot, version as readVersion } from '../config.mjs';
 import { loadState } from '../state.mjs';
 // ARC-08-C29 — the runner's own step list, so the plan and the run are one computation.
@@ -45,7 +45,8 @@ import { nonOkLines } from '../doctor/panel.mjs';
 import { formatVersion, meetsFloor } from '../versions.mjs';
 import { writeUpgradeCheck } from '../upgrade-check.mjs';
 import { manifestSays, refreshManifest, refreshWithUpgrade } from '../licence/fetch.mjs';
-import { MANIFESTS_FROM, archiveDiffers, checkTree, signedRelease, writeManifestCache } from '../licence/manifest.mjs';
+import { DISTRIBUTION_FROM, MANIFESTS_FROM, archiveDiffers, checkTree, signedRelease, writeManifestCache }
+  from '../licence/manifest.mjs';
 import { hashFor, INPUTS, STEP_IDS } from '../inputs.mjs';
 
 /**
@@ -221,38 +222,78 @@ export function fastForwardFailureLine(stderr, { branch, target }) {
 }
 
 /**
+ * ARC-09-C185c — the line for an install whose origin is a GitHub repository other than the one releases are published
+ * at (`repo`, the config's `owner/name`), or `null`. From 2.2.1 a final is published there, signed over that repository's
+ * commit, so an origin elsewhere stops at U4 on another commit, or at U2 once it no longer answers; this says where to
+ * point it. Only a GitHub URL is judged: an origin on another host is a mirror or a path, and is the reader's own
+ * arrangement. A credential in the URL is never printed.
+ */
+export function originLine(url, repo, cli) {
+  const at = /^(?:(?:https?|ssh|git):\/\/(?:[^@/]+@)?|[^@/\s]+@)github\.com[/:]([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i
+    .exec(String(url ?? '').trim());
+  if (!at || typeof repo !== 'string' || repo === '') return null;
+  if (`${at[1]}/${at[2]}`.toLowerCase() === repo.toLowerCase()) return null;
+  // An http(s) URL may carry a token as its user, with or without a password; an ssh user is a login name, kept.
+  const shown = String(url).trim().replace(/^(https?:\/\/)[^@/]+@/i, '$1');
+  const home = `https://github.com/${repo}.git`;
+  return `upgrade: origin is ${shown}, and releases are published at ${home} — git remote set-url origin ${home}, `
+    + `then run ${cli} upgrade again`;
+}
+
+/**
  * What git's failure was, in the words of a remedy.
  *
  * Git's own stderr is printed too, always and first: it is the truth, and a classifier that
  * replaced it would be deciding what the user is allowed to see. What this adds is the sentence a
  * reader can act on — and only when the shape is recognised, because a confident wrong remedy
  * costs more than none (R-3, and `03`'s proxy findings).
+ *
+ * ARC-09-C207 — the sentence is `reason`, and each caller frames it: the upgrade's `line` below heads it with
+ * `upgrade: `, and the doctor's E-28 shows it as it is, because a doctor line headed "upgrade:" claims a command that
+ * never ran. `reason` is `null` for a shape this does not recognise.
  */
-export function classifyGitFetchError(stderr = '', { remote = 'origin' } = {}) {
+export function gitFetchReason(stderr = '', { remote = 'origin' } = {}) {
   const text = String(stderr);
   const host = /could not resolve host:?\s*(\S+)/i.exec(text)?.[1] ?? remote;
   if (/could not resolve host/i.test(text)) {
-    return { kind: 'dns', line: `upgrade: DNS failure for ${host} — check the network; if you are `
+    return { kind: 'dns', reason: `DNS failure for ${host} — check the network; if you are `
       + 'behind a corporate proxy, git reads HTTPS_PROXY / http.proxy '
       + '(docs/TROUBLESHOOTING.md#proxy_unreachable)' };
   }
   if (/SSL certificate problem|unable to get local issuer|self[- ]signed certificate/i.test(text)) {
-    return { kind: 'tls', line: 'upgrade: TLS certificate not trusted — a TLS-intercepting proxy '
+    return { kind: 'tls', reason: 'TLS certificate not trusted — a TLS-intercepting proxy '
       + 'needs its CA in git (http.sslCAInfo) and in Node (NODE_EXTRA_CA_CERTS); see '
       + 'docs/TROUBLESHOOTING.md#tls_ca_untrusted' };
   }
   if (/\b407\b|proxy authentication required/i.test(text)) {
-    return { kind: 'proxy-auth', line: 'upgrade: the proxy demanded authentication (407) — put the '
+    return { kind: 'proxy-auth', reason: 'the proxy demanded authentication (407) — put the '
       + 'credentials in HTTPS_PROXY, or ask for an exception for this host '
       + '(docs/TROUBLESHOOTING.md#proxy_auth_required)' };
   }
+  // ARC-09-C190 — the remote wanted a credential it was not given, or says it has no such repository, which is how a
+  // private one answers a stranger. The fetch runs with prompts off, so this is git's answer at once, not a wait.
+  // ARC-09-C207 — a plain 404 with no `remote:` line, a moved URL on a self-hosted server, is git's
+  // "repository '<url>' not found": the URL sits between the words GitHub's own line keeps together.
+  if (/could not read Username|Authentication failed|Repository not found|repository '[^']*' not found|terminal prompts disabled/i
+    .test(text)) {
+    return { kind: 'auth', reason: `${remote} asked for credentials, or was not found — it may be private or `
+      + `moved; check it with git remote get-url ${remote}` };
+  }
   // A refused connection is the shape a dead proxy makes, and it is the one AC 4 exercises.
   if (/connection refused|failed to connect|couldn't connect to server|unable to access/i.test(text)) {
-    return { kind: 'proxy', line: 'upgrade: could not reach the remote — if you are behind a '
+    return { kind: 'proxy', reason: 'could not reach the remote — if you are behind a '
       + 'corporate proxy, git reads HTTPS_PROXY / http.proxy '
       + '(docs/TROUBLESHOOTING.md#proxy_unreachable)' };
   }
-  return { kind: 'unknown', line: null };
+  return { kind: 'unknown', reason: null };
+}
+
+/** The upgrade's line for git's failure: `gitFetchReason`'s sentence, framed as the upgrade's own, or `null`. */
+export function classifyGitFetchError(stderr = '', { remote = 'origin' } = {}) {
+  const { kind, reason } = gitFetchReason(stderr, { remote });
+  if (reason === null) return { kind, line: null };
+  // Only the credential line ends by saying nothing was changed, as ARC-09-C190 wrote it; the others never did.
+  return { kind, line: `upgrade: ${reason}${kind === 'auth' ? '; nothing was changed' : ''}` };
 }
 
 // ARC-09-S12 — `parseSemver` and `sortTags` moved to `lib/semver.mjs` and are re-exported here so
@@ -392,7 +433,28 @@ export function planContext({ root, config, ctx = {}, state = null }) {
  * made. Without it the plan would list B01 and the run would find it cached (ARC-08-C29). A move that does not write
  * it — a pull on a branch — leaves the question to the cache, as the runner will.
  */
-export function rerunAtTag(root, tag, { ctx, state, run = spawnSync, keepWorktree = null, manifestWritten = false } = {}) {
+/**
+ * ARC-09-C196 — one step's verdict from its recorded status, or `null` when it is judged by its hash and outputs.
+ *
+ * Every status a step entry can carry, by name, because a status left out is the next loop: the runner's ok, warn
+ * and fail (steps/index.mjs), `skipped` when runsWhen declined, and interrupt()'s `failed` with reason
+ * `interrupted`; a status `interrupted` is read for older states, and nothing in this tree writes it.
+ *
+ * A WARN IS JUDGED TWO WAYS. The runner caches only ok, so on U4's path a warned step will run again and the plan
+ * says so, in true words: "last run warned", not "did not finish". At the tag (`warnIsDone`) the question is
+ * whether the move finished, and a warned step finished: it is judged by its hash, like ok.
+ */
+export function statusVerdict(recorded, { warnIsDone = false } = {}) {
+  if (!recorded) return 'never recorded';
+  if (recorded.status === 'ok') return null;
+  if (recorded.status === 'warn') return warnIsDone ? null : 'last run warned';
+  if (recorded.reason === 'interrupted' || recorded.status === 'interrupted') return 'last run interrupted';
+  if (recorded.status === 'skipped') return 'last run skipped it';
+  return 'last run did not finish';
+}
+
+export function rerunAtTag(root, tag, { ctx, state, run = spawnSync, keepWorktree = null, manifestWritten = false,
+  warnIsDone = false } = {}) {
   const scratch = keepWorktree ? null : mkdtempSync(join(tmpdir(), 'snowarch-plan-'));
   const at = keepWorktree ?? join(scratch, 'at-tag');
   const added = keepWorktree !== null
@@ -436,11 +498,8 @@ export function rerunAtTag(root, tag, { ctx, state, run = spawnSync, keepWorktre
       if (step.runsWhen(tagCtx) === false) continue;
       if (step.cacheable === false) continue;   // B00 and B09 run every time and say so elsewhere
       const recorded = state?.steps?.[step.id];
-      if (!recorded) { out.set(step.id, 'never recorded'); continue; }
-      if (recorded.status !== 'ok') {
-        out.set(step.id, recorded.reason === 'interrupted' ? 'last run interrupted' : 'last run did not finish');
-        continue;
-      }
+      const unfinished = statusVerdict(recorded, { warnIsDone });
+      if (unfinished) { out.set(step.id, unfinished); continue; }
       let hash = null;
       try { hash = hashFor(step.id, tagCtx); } catch { hash = null; }
       if (hash === null) { out.set(step.id, 'inputs could not be read'); continue; }
@@ -471,10 +530,11 @@ export function rerunAtTag(root, tag, { ctx, state, run = spawnSync, keepWorktre
  * change explains, and a step stale for any other reason carries the hash's own word instead of
  * vanishing from the line.
  */
-export function planSteps(root, tag, { ctx, state, opts = {}, run = spawnSync, manifestWritten = false } = {}) {
+export function planSteps(root, tag, { ctx, state, opts = {}, run = spawnSync, manifestWritten = false,
+  warnIsDone = false } = {}) {
   const byFile = new Map(stepsThatWillRun(root, tag, { ctx, opts })
     .map((s) => [s.step, s]));
-  const decided = rerunAtTag(root, tag, { ctx, state, run, manifestWritten });
+  const decided = rerunAtTag(root, tag, { ctx, state, run, manifestWritten, warnIsDone });
 
   // No worktree, no runner comparison: fall back to the file diff and SAY it is an estimate.
   if (decided === null) {
@@ -598,10 +658,13 @@ export function renderPlan({ from, to, commits, date, tagInfo, floor, steps, sto
  * `fail` and `interrupted` both mean "this checkout is part-way through an install", which is the
  * state a resume exists for. A step that was SKIPPED is not one of them: `runsWhen` declining is a
  * decision, not an interruption.
+ *
+ * ARC-09-C196 — and `failed`, which is what `interrupt()` (steps/index.mjs) records for a Ctrl-C, with its reason
+ * `interrupted` beside it. This tested `fail` and `interrupted` only, so an interrupted bootstrap read "up to date".
  */
 export function failedStep(state) {
   for (const [id, entry] of Object.entries(state?.steps ?? {})) {
-    if (entry?.status === 'fail' || entry?.status === 'interrupted') return id;
+    if (entry?.status === 'fail' || entry?.status === 'failed' || entry?.status === 'interrupted') return id;
   }
   return null;
 }
@@ -688,13 +751,18 @@ export async function upgradeCommand({ flags = {}, positional = [], log, root = 
   // ── U2 fetch ──────────────────────────────────────────────────────────────────────────────
   log.step(stepLine(2, `fetch tags from ${remote}`));
   const fetchArgs = ['fetch', '--tags', '--prune', ...(shallow ? ['--unshallow'] : []), remote];
-  const fetched = run('git', fetchArgs, { cwd: root, encoding: 'utf8', env: childEnv(root, env),
+  // ARC-09-C190 — with prompts off: a remote that wants a credential no helper holds fails now, with git's reason,
+  // instead of waiting on a prompt until FETCH_TIMEOUT_MS. A helper's stored credential still applies.
+  const fetched = run('git', fetchArgs, { cwd: root, encoding: 'utf8', env: childEnv(root, { ...env, ...NO_PROMPT_ENV }),
     timeout: FETCH_TIMEOUT_MS, stdio: 'pipe' });
   if (fetched.status !== 0) {
     const stderr = String(fetched.stderr ?? fetched.error?.message ?? '').trim();
     if (stderr) for (const line of stderr.split('\n')) log.step(line);
     const { line } = classifyGitFetchError(stderr, { remote });
     log.fail(line ?? 'upgrade: git could not fetch the release tags; nothing was changed');
+    const moved = originLine(git(root, ['config', '--get', `remote.${remote}.url`], { ...opts, allowFail: true }),
+      config.repo, spellings({ platform, env }).cli);
+    if (moved) log.step(moved);
     return EXIT_FAIL;
   }
 
@@ -753,12 +821,24 @@ export async function upgradeCommand({ flags = {}, positional = [], log, root = 
   // that answered `up to date` to that would be telling a user to type a command that does
   // nothing. So an unfinished bootstrap continues from U6 instead.
   const unfinished = here === target ? failedStep(state) : null;
-  if (here === target && !unfinished) {
+  // ARC-09-C196 — AT THE TAG, "UP TO DATE" ONLY WHEN NOTHING IS LEFT TO RUN. A move whose bootstrap recorded nothing
+  // (it died before its first entry, was killed, or the run stopped between U5 and U6) leaves every step recorded ok
+  // against the OLD inputs, and this answered "up to date" with U6 and U7 never run. The plan U4 prints asks the
+  // tag's own runner; here it is asked with `manifestWritten: false`, because the at-target path writes no manifest:
+  // a cache without this release's is a step to run, and B01 refreshes it. Without a worktree the plan falls back to
+  // the file diff, which is empty here, and the answer stays "up to date".
+  const leftToRun = here === target && !unfinished
+    ? planSteps(root, target, { ctx: { root, config }, state, opts, run, manifestWritten: false, warnIsDone: true }).steps
+    : [];
+  if (here === target && !unfinished && leftToRun.length === 0) {
     log.step(`up to date (${target})`);
     return EXIT_OK;
   }
-  if (unfinished) {
-    log.step(`already at ${target}; the last run stopped at ${unfinished} — continuing from there`);
+  if (unfinished || leftToRun.length > 0) {
+    log.step(unfinished
+      ? `already at ${target}; the last run stopped at ${unfinished} — continuing from there`
+      : `already at ${target}, with steps still to run (${leftToRun.map((st) => `${st.step}: ${st.why}`).join('; ')}) `
+        + '— continuing from there');
     return finish({ root, env, log, run, target, latest, remote, now, state,
       skipClaudeCheck: Boolean(flags['force-floor']) });
   }
@@ -788,6 +868,13 @@ export async function upgradeCommand({ flags = {}, positional = [], log, root = 
     const why = fetched.outcome === 'fetched' ? archiveDiffers(root, target, fetched.entry.doc.manifest) : manifestSays(fetched);
     if (why) {
       log.fail(`upgrade: ${target} has no verified signed manifest (${why}) — nothing was changed`);
+      // ARC-09-C185c — signed over another commit than the tag here: the tag came from somewhere else than the release.
+      const local = git(root, ['rev-parse', `${target}^{commit}`], { ...opts, allowFail: true });
+      if (fetched.outcome === 'fetched' && fetched.entry.doc.manifest.commit !== local) {
+        const moved = originLine(git(root, ['config', '--get', `remote.${remote}.url`], { ...opts, allowFail: true }),
+          config.repo, spellings({ platform, env }).cli);
+        if (moved) log.step(moved);
+      }
       return EXIT_FAIL;
     }
     log.step(manifestSays(fetched));
@@ -930,11 +1017,8 @@ export async function upgradeCommand({ flags = {}, positional = [], log, root = 
   if (byBranch) {
     log.step(`${branch.branch} is at ${target}`);
   } else {
-    // ARC-09-C194 — once the target's manifest is cached, `git checkout` back leaves the cache naming the target, so
-    // integrity reads 'other' and every command is refused. From a release, the way back is the upgrade, which
-    // fetches, verifies and caches that release's own; a tree that was not on one has no manifest to disagree with.
-    const back = manifest && here ? `${cli} upgrade --to ${here}` : `git checkout ${returnTo}`;
-    log.step(`HEAD is detached at ${target} — return with: ${back}`);
+    // ARC-09-C194 and C203: which return the line names, and why, is returnLine's.
+    log.step(returnLine({ cli, here, target, manifest, returnTo }));
   }
   log.step('your instance store lives in .local/, which git ignores, so no checkout touches it');
 
@@ -962,6 +1046,28 @@ export function returnRef(branch, described) {
 }
 
 /**
+ * What U5 says on the detached path, to return to where this tree was.
+ *
+ * ARC-09-C194 — once the target's manifest is cached, `git checkout` back leaves the cache naming the target, so
+ * integrity reads 'other' and every command is refused. From a release, the way back is the upgrade, which fetches,
+ * verifies and caches that release's own; a tree that was not on one has no manifest to disagree with.
+ *
+ * ARC-09-C203 — UNLESS THE TARGET'S OWN CODE CANNOT RUN THAT UPGRADE. The printed upgrade runs under the target, and a
+ * target below `distributionFrom` predates ARC-09-C192: it refuses a newer release's manifest. The D3 drill: from
+ * v2.2.1-rc.2, `--to v2.2.0`, then the printed `upgrade --to v2.2.1-rc.2` was refused. Such a target is left by a fresh
+ * install, which always works. A 2.2.1 release candidate compares below 2.2.1 and is counted with it.
+ */
+export function returnLine({ cli, here, target, manifest, returnTo, distributionFrom = DISTRIBUTION_FROM }) {
+  if (!manifest || !here) return `HEAD is detached at ${target} — return with: git checkout ${returnTo}`;
+  let below = false;
+  try { below = compareSemver(target, distributionFrom) < 0; } catch { below = false; }
+  return below
+    ? `HEAD is detached at ${target} — ${target} checks releases by its own older rule: return to ${here} by a fresh `
+      + 'install (docs/MIGRATION.md)'
+    : `HEAD is detached at ${target} — return with: ${cli} upgrade --to ${here}`;
+}
+
+/**
  * U6 and U7 — the half that runs whether this is a move or a continuation.
  *
  * Extracted because an upgrade has two ways in: the ordinary one, which plans and moves the tree
@@ -981,9 +1087,10 @@ export async function finish({ root, env, log, run, target, latest, remote, now,
     'bootstrap', '--mode', mode, '--yes', ...(skipClaudeCheck ? ['--skip-claude-check'] : [])],
   { cwd: root, stdio: 'inherit', env: childEnv(root, env) });
   if (bootstrap.status !== 0) {
+    // ARC-09-C196 — not "the state file records the step": a bootstrap that died before its first entry, or was
+    // killed, recorded none. The re-run is right either way, because the at-target path asks the plan.
     log.fail(`upgrade: the bootstrap stopped (exit ${bootstrap.status ?? 'abnormally'}) — the tree `
-      + `is at ${target} and the state file records the step; re-run ${spell.cli} upgrade or `
-      + `${spell.bootstrap}`);
+      + `is at ${target}; re-run ${spell.cli} upgrade or ${spell.bootstrap}`);
     return EXIT_FAIL;
   }
 

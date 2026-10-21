@@ -148,10 +148,10 @@ export function collectRoster(root) {
   const problems = [];
   const rosterSkills = skills.filter((s) => !utility.has(s.dir));
   if (declared.skills !== undefined && declared.skills !== rosterSkills.length) {
-    problems.push(`roster.skills ${declared.skills} ≠ ${rosterSkills.length} found`);
+    problems.push(`\`roster.skills\` ${declared.skills} ≠ ${rosterSkills.length} found`);
   }
   if (declared.agents !== undefined && declared.agents !== agents.length) {
-    problems.push(`roster.agents ${declared.agents} ≠ ${agents.length} found`);
+    problems.push(`\`roster.agents\` ${declared.agents} ≠ ${agents.length} found`);
   }
   const known = new Set(skills.map((s) => s.name));
   for (const a of agents) {

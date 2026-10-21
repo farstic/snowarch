@@ -28,7 +28,7 @@ macOS / Linux:
 
 ```sh
 mv snowarch snowarch-2.2.0
-git -c advice.detachedHead=false clone --branch v2.2.1 https://github.com/farstic/snowarch.git snowarch
+git -c advice.detachedHead=false clone --branch v2.2.2 https://github.com/farstic/snowarch.git snowarch
 cd snowarch
 mkdir -p .local .claude
 cp -p ../snowarch-2.2.0/.local/licence.json ../snowarch-2.2.0/.local/instances.json .local/
@@ -43,7 +43,7 @@ Windows PowerShell:
 
 ```powershell
 Rename-Item snowarch snowarch-2.2.0
-git -c advice.detachedHead=false clone --branch v2.2.1 https://github.com/farstic/snowarch.git snowarch
+git -c advice.detachedHead=false clone --branch v2.2.2 https://github.com/farstic/snowarch.git snowarch
 cd snowarch
 New-Item -ItemType Directory -Force .local, .claude | Out-Null
 Copy-Item ..\snowarch-2.2.0\.local\licence.json, ..\snowarch-2.2.0\.local\instances.json .local\
@@ -62,6 +62,10 @@ default instance and does not run the wizard. Other folders of your own that git
 `reports/`) are copied the same way if you have them. Do not copy the rest of `.local/`: it describes the old folder,
 and a copied bootstrap record makes the new install skip steps it needs. Once the new install's `./snowarch status`
 reads as the old one did, delete `snowarch-2.2.0`.
+
+If its upgrade asks `Username for 'https://github.com':`, or stops with git's `could not read Username` followed by
+`upgrade: git could not fetch the release tags; nothing was changed`, the install cannot reach the address it was
+installed from: replace it as above.
 
 ## An install made with `clone --branch` of a 2.2.1 release candidate, or later
 
@@ -89,6 +93,11 @@ Your `.local/`, your instances and your engagement folders stay where they are.
 If the upgrade stops at its fetch with `! [rejected] v2.2.1 -> v2.2.1 (would clobber existing tag)`, the install holds
 a tag of that name from its previous address: remove it with `git tag -d v2.2.1`, then upgrade again. Nothing else had
 changed.
+
+If the upgrade stops at its fetch with
+`upgrade: origin asked for credentials, or was not found — it may be private or moved; check it with git remote get-url origin; nothing was changed`,
+point the install at the address releases are published at: `git remote set-url origin https://github.com/farstic/snowarch.git`
+from its folder, then the upgrade again.
 
 An install that still has the v2.2.0 tag can go back with `upgrade --to v2.2.0`; it is then a 2.2.0 install again and
 returns by the fresh install above.
@@ -171,13 +180,13 @@ Get-ChildItem memory, scratchpad, deliverables, diagram-preview -ErrorAction Sil
 macOS / Linux:
 
 ```sh
-git -c advice.detachedHead=false clone --branch v2.2.1 https://github.com/farstic/snowarch.git && cd snowarch && ./bootstrap.sh
+git -c advice.detachedHead=false clone --branch v2.2.2 https://github.com/farstic/snowarch.git && cd snowarch && ./bootstrap.sh
 ```
 
 Windows PowerShell:
 
 ```powershell
-git -c advice.detachedHead=false clone --branch v2.2.1 https://github.com/farstic/snowarch.git
+git -c advice.detachedHead=false clone --branch v2.2.2 https://github.com/farstic/snowarch.git
 cd snowarch
 .\bootstrap.cmd
 ```

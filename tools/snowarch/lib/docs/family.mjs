@@ -141,7 +141,7 @@ export function planFamilySwitch({ root = process.cwd(), config, to, from = null
     }
   }
   edits.push({ file: 'engine.config.json', line: null, kind: 'config',
-    before: `docs.family "${old}"`, after: `"${to}"` });
+    before: `\`docs.family\` "${old}"`, after: `"${to}"` });
 
   // The schema enum, when the target is not already one of its values. Applied FIRST under --yes,
   // so the config write never lands against a schema that would reject it.
@@ -152,7 +152,7 @@ export function planFamilySwitch({ root = process.cwd(), config, to, from = null
     const enumv = schema?.properties?.docs?.properties?.family?.enum;
     if (Array.isArray(enumv) && !enumv.includes(to)) {
       schemaEdit = { file: 'engine.config.schema.json', line: null, kind: 'schema',
-        before: `docs.family enum`, after: `+ "${to}"` };
+        before: `\`docs.family\` enum`, after: `+ "${to}"` };
     }
   }
 
@@ -187,7 +187,7 @@ export function formatPlan(plan, { applied = false, spell } = {}) {
   const lines = [`docs family: ${plan.from} → ${plan.to}`];
   lines.push(`upstream branch ${plan.to}: found (tip ${plan.tip.slice(0, 7)})`);
   if (plan.schemaEdit) {
-    lines.push(`EDIT engine.config.schema.json: docs.family enum + "${plan.to}"`);
+    lines.push(`EDIT engine.config.schema.json: \`docs.family\` enum + "${plan.to}"`);
   }
   for (const e of plan.edits) {
     lines.push(e.line === null

@@ -19,6 +19,8 @@ import { maskProxy } from '../../net-sentences.mjs';
 import { get as claudeGet, resolveClaude } from '../../registration-claude.mjs';
 import { loadStateOrReason } from '../../state.mjs';
 import { remedyFor } from '../../../../../packages/contract/lib/contract.mjs';
+import { NO_PROMPT_ENV } from '../../spawn-env.mjs';
+import { TIMED_OUT } from '../../probe-net.mjs';
 import { defineCheck } from '../registry.mjs';
 
 import { fail, ok, skip, warn } from './result.mjs';
@@ -340,6 +342,9 @@ export function hostChecks() {
         // ARC-09-C47 — IS THIS RECORD EVIDENCE ABOUT CURRENCY? Three ways it is not, and each
         // catches a different sighting from the owner's sitting. Only the third works on a record
         // written by a build that predates this check.
+        // This tree's exact release tag, asked once: rule 2 below and ARC-09-C210's rule read it. Never under
+        // `--no-network`, whose contract is that the check spawns nothing.
+        const here = cached && !noNetwork ? describeExact(ctx.root, ctx.exec) : null;
         const notCurrency = (() => {
           if (!cached) return null;
           // 1. An upgrade wrote it. It knows which tag it moved to and never asked what exists.
@@ -354,7 +359,6 @@ export function hostChecks() {
           //    `tests/doctor/release-currency.test.mjs` asserts it — and `git describe` is a
           //    spawn even though it is local. Offline keeps checks 1 and 3, which are pure reads
           //    of the record, and says nothing about a disagreement it did not look for.
-          const here = noNetwork ? null : describeExact(ctx.root, ctx.exec);
           if (cached.localTag && here && cached.localTag !== here) {
             return `stale record from an interrupted upgrade (it describes ${cached.localTag}, `
               + `this tree is ${here})`;
@@ -393,19 +397,46 @@ export function hostChecks() {
             return skip(`${cached.remote ?? remote} advertised no release tags · last checked `
               + `${cached.checkedAt}`, { data: { ...cached, refreshed: false } });
           }
-          return cached.behind
+          // ARC-09-C210 — A RECORD NO NEWER THAN THIS TREE'S RELEASE IS UP TO DATE, WHICHEVER TREE WROTE IT. U2 of a
+          // move from a tree with no reachable tag records { localTag: null, behind: true }; rule 2 needs a localTag, so
+          // U7 answered from it, right after the move, that the release just installed was available.
+          const { compareSemver } = await import('../../semver.mjs');
+          let current = false;
+          try { current = Boolean(here) && compareSemver(cached.latestTag, here) <= 0; } catch { current = false; }
+          return cached.behind && !current
             ? warn(`${cached.latestTag} available — run ${cliOf(ctx)} upgrade`,
               { command: `${cliOf(ctx)} upgrade`, data: { ...cached, refreshed: false } })
-            : ok(`up to date (${cached.localTag ?? cached.latestTag}) · last checked `
+            : ok(`up to date (${current ? here : (cached.localTag ?? cached.latestTag)}) · last checked `
               + `${cached.checkedAt}`, { ...cached, refreshed: false });
         }
 
         // `ls-remote`, not `fetch`: the question is "what tags exist there", and a doctor has no
         // business writing objects into a user's repository to answer it.
         const remote = 'origin';
-        const listed = (ctx.exec ?? execFileSync)('git',
-          ['ls-remote', '--tags', '--refs', remote, 'v*'],
-          { cwd: ctx.root, encoding: 'utf8', stdio: 'pipe', timeout: 15_000 });
+        // ARC-09-C190 — with prompts off, as `upgrade`'s fetch: an origin that wants a credential no helper holds
+        // answers at once, and never with a prompt the doctor's reader cannot see.
+        const budget = 15_000;
+        let listed;
+        try {
+          listed = (ctx.exec ?? execFileSync)('git',
+            ['ls-remote', '--tags', '--refs', remote, 'v*'],
+            { cwd: ctx.root, encoding: 'utf8', stdio: 'pipe', timeout: budget,
+              env: { ...(ctx.env ?? process.env), ...NO_PROMPT_ENV } });
+        } catch (e) {
+          // ARC-09-C207 — A REMOTE THAT WILL NOT ANSWER IS A FACT ABOUT THE REMOTE, NOT A CRASH OF THIS CHECK. Uncaught,
+          // a 401, a 404, a name that does not resolve or a blocking proxy reached the runner as "check crashed" at
+          // status fail, from a check whose severity is warn, and the doctor exited 1. The reason is the upgrade's
+          // sentence without its framing, then git's own last line, which is what the reason was read from. Nothing is
+          // written to the cache: nothing was measured, the rule AC 4 holds the upgrade to when its fetch fails.
+          const { gitFetchReason } = await import('../../commands/upgrade.mjs');
+          const stderr = String(e?.stderr ?? '');
+          const reason = e?.code === TIMED_OUT
+            ? `${remote} did not answer within ${budget / 1000} s`
+            : gitFetchReason(stderr, { remote }).reason ?? `could not list ${remote}'s release tags`;
+          const lines = stderr.split('\n').map((l) => l.trim()).filter(Boolean);
+          const said = lines.filter((l) => l.startsWith('fatal:')).pop() ?? lines.pop();
+          return warn(said ? `${reason}\n${said}` : reason, { data: { remote, refreshed: false } });
+        }
         const { sortTags } = await import('../../commands/upgrade.mjs');
         const names = String(listed ?? '').split('\n')
           .map((l) => l.split('/').pop()?.trim()).filter(Boolean);

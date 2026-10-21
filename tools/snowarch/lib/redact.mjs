@@ -27,6 +27,10 @@ export const isSecretKey = (name) => SECRET_KEY.test(String(name));
 const NOT_A_NAME = new Set([
   'mjs', 'js', 'ts', 'cjs', 'json', 'md', 'sh', 'ps1', 'cmd', 'yml', 'yaml', 'txt', 'log', 'lock',
   'com', 'org', 'net', 'io', 'dev', 'local', 'invalid', 'test', 'example', 'gov', 'edu', 'uk', 'de',
+  // ARC-09-C207 — git's `http.proxy`, which the upgrade's and the doctor's proxy remedies name: printed as `h***.p***`.
+  'proxy',
+  // ARC-09-C208 — `cmd.exe`, named in a launcher error. A package id in an install command is the rule below.
+  'exe',
 ]);
 
 /** Values a caller has told us are secret — S07 registers what it reads from the instance store. */
@@ -46,6 +50,14 @@ export function register(value) {
 
 /** For tests: forget everything registered. Never called by the CLI. */
 export function reset() { registered.clear(); }
+
+/**
+ * ARC-09-C208 — the install commands this engine prints, as measured in its remedies: what follows one of them is a
+ * package id, never a person, and a user pastes the line into a shell, PowerShell among them, where a backtick is the
+ * escape character and the id cannot be quoted as code. `winget install Git.Git` printed as `G***.G***` on Windows.
+ * Flags between the command and the id are allowed (`brew install --cask …`).
+ */
+const INSTALL_COMMAND = /\b(?:winget|brew|apt|dnf) install\s+(?:-{1,2}[\w-]+\s+)*$/;
 
 const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -86,10 +98,11 @@ export function redact(input) {
   // its own logs unreadable — which is a worse failure than the one it was guarding against, since
   // nobody then reads them at all. Measured on the first run: every filename in this repository.
   //
-  // So it fires only where a username plausibly is: not inside a path or URL, and not when the
-  // second segment is a file extension or a top-level domain.
+  // So it fires only where a username plausibly is: not inside a path or URL, not when the second segment is a file
+  // extension or a top-level domain, and not on the package id an install command names (ARC-09-C208).
   out = out.replace(/(^|[\s([])([A-Za-z])([a-z]+)\.([A-Za-z])([a-z]+)\b(?!\.[A-Za-z])/g,
-    (m, lead, a, arest, b, brest) => (NOT_A_NAME.has(`${b}${brest}`.toLowerCase())
+    (m, lead, a, arest, b, brest, at, text) => (NOT_A_NAME.has(`${b}${brest}`.toLowerCase())
+      || INSTALL_COMMAND.test(text.slice(0, at + lead.length))
       ? m
       : `${lead}${a}***.${b}***`));
   out = out.replace(/\u0000(\d+)\u0000/g, (_, i) => held[Number(i)]);

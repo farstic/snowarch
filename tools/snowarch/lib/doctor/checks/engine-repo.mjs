@@ -97,17 +97,17 @@ export function configProblems(config, root) {
     'roster.agents': config?.roster?.agents,
   };
   for (const [name, value] of Object.entries(required)) {
-    if (value === undefined || value === null || value === '') problems.push(`${name} is missing`);
+    if (value === undefined || value === null || value === '') problems.push(`\`${name}\` is missing`);
   }
   if (config?.mcp?.serverKey && /\s/.test(config.mcp.serverKey)) {
-    problems.push('mcp.serverKey contains whitespace');
+    problems.push('`mcp.serverKey` contains whitespace');
   }
   if (config?.docs?.pin && !/^[0-9a-f]{40}$/.test(config.docs.pin)) {
-    problems.push('docs.pin is not a 40-character sha');
+    problems.push('`docs.pin` is not a 40-character sha');
   }
   const dir = config?.mcp?.packageDir;
   if (dir && !existsSync(join(root, dir))) {
-    problems.push(`mcp.packageDir "${dir}" does not exist`);
+    problems.push(`\`mcp.packageDir\` "${dir}" does not exist`);
   } else if (dir) {
     // The package NAME is compared against the package itself rather than against a literal here:
     // `@farstic/snowarch` written in this file would be a second declaration of it, and the one in
@@ -116,7 +116,7 @@ export function configProblems(config, root) {
     try { name = readJson(root, join(dir, 'package.json')).name; } catch { /* reported below */ }
     if (name === null) problems.push(`${dir}/package.json is unreadable`);
     else if (name !== config.mcp.package) {
-      problems.push(`mcp.package "${config.mcp.package}" ≠ ${dir}/package.json name "${name}"`);
+      problems.push(`\`mcp.package\` "${config.mcp.package}" ≠ ${dir}/package.json name "${name}"`);
     }
   }
   return problems;

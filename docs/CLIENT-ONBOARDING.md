@@ -81,7 +81,7 @@ proposes a custom object, the answer is the open question, not the table.
 
 Only when the client has a genuinely non-standard process that the roster mis-routes — and **not under
 `.claude/skills/`**, committed or not: the doctor's E-17 counts that directory
-against `engine.config.json`'s roster, so an extra directory there is `roster.skills 28 ≠ 29 found`, a FAIL. Keep
+against `engine.config.json`'s roster, so an extra directory there is `` `roster.skills` 28 ≠ 29 found ``, a FAIL. Keep
 it as a file under `clients/<name>/`, ask Claude to read it when the engagement is loaded, and record why in the
 engagement's decision records. Prefer engagement context over a new specialist: a default recorded in
 step 3 costs nothing to maintain.

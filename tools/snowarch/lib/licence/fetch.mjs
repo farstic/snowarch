@@ -35,12 +35,12 @@ import { newerList, readList } from './core.mjs';
 import { PRODUCT_KEYS } from './keys.mjs';
 import { readManifest, writeManifestCache } from './manifest.mjs';
 import { heldList, readLicenceText, readListCache, writeListCache } from './state.mjs';
+import { NO_PROMPT_ENV } from '../spawn-env.mjs';
 import { which } from '../which.mjs';
 
 /** The CLI's whole budget for one fetch, across its three git calls. */
 export const FETCH_BUDGET_MS = 15_000;
 
-const NO_PROMPT_ENV = Object.freeze({ GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '', SSH_ASKPASS: '', GCM_INTERACTIVE: 'never' });
 const NO_HELPER = Object.freeze(['-c', 'credential.helper=']);
 const OWNER_NAME = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
 
@@ -141,7 +141,7 @@ const SAYS = {
   refused: (r) => `revocation list: the published list does not verify (${r.reason}) — ignored`,
   unreachable: (r) => `revocation list: could not be reached (${r.detail}) — `
     + `${r.version ? `kept version ${r.version}` : 'none held'}`,
-  unconfigured: () => 'revocation list: none configured (engine.config.json → licence.revocations)',
+  unconfigured: () => 'revocation list: none configured (engine.config.json → `licence.revocations`)',
 };
 export const refreshSays = (r) => SAYS[r.outcome](r);
 

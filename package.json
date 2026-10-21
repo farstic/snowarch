@@ -1,6 +1,6 @@
 {
   "name": "snowarch",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "private": true,
   "description": "AI ServiceNow Architect — Claude Code engine + bundled ServiceNow MCP server (snowarch)",
   "license": "BUSL-1.1",

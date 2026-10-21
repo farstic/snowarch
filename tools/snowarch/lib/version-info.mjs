@@ -51,13 +51,16 @@ function builtContract(root) {
  * what turns a mismatch into a FAIL.
  */
 export function versionInfo(root, { env = process.env, platform = process.platform,
-  full = true } = {}) {
-  const config = loadConfig(root);
+  full = true, config: given = null } = {}) {
+  // ARC-09-C209 — the doctor passes the configuration it already read, unvalidated, because a key `loadConfig`
+  // requires may be the very thing E-06 is about to report: thrown from here, it ended the doctor in a stack trace.
+  // The `version` command passes nothing and keeps `loadConfig`'s refusal, which names the keys it misses.
+  const config = given ?? loadConfig(root);
   const opts = { env, platform };
 
   const contractSha = builtContract(root);
   const contractPinned = pinnedContract(root);
-  const docsPinConfig = config.docs.pin;
+  const docsPinConfig = config.docs?.pin ?? null;
   const link = gitlink(root, DOCS_PATH, opts);
 
   // `full: false` is the DOCTOR's call, and it is about spawns rather than tidiness. The header
@@ -78,8 +81,8 @@ export function versionInfo(root, { env = process.env, platform = process.platfo
     version,
     contractSha,
     docsPin: docsPinConfig,
-    docsFamily: config.docs.family,
-    floors: config.floors,
+    docsFamily: config.docs?.family ?? null,
+    floors: config.floors ?? {},
 
     // ── what ARC-09-S04 adds, beside them ───────────────────────────────────────────────────
     tag: found
