@@ -324,9 +324,8 @@ export function hostChecks() {
       run: async (ctx) => {
         const { needsRefresh, readUpgradeCheck, writeUpgradeCheck } =
           await import('../../upgrade-check.mjs');
-        // ARC-09-C47 — the same parser `sortTags` uses below, so "is this a prerelease?" has one
-        // answer in this file rather than a second regex that could disagree with the first.
-        const { parseSemver } = await import('../../commands/upgrade.mjs');
+        // ARC-09-C199 — what the record says is decided in ONE place, which the SessionStart banner reads too.
+        const { recordSays } = await import('../../upgrade-record.mjs');
         const cached = readUpgradeCheck(ctx.root);
         // ARC-09-C31. `ctx.now()` is EPOCH MILLISECONDS (the contract is stated where the context
         // is built); `upgrade-check.mjs` wants a `Date`, and its own default supplies one. This
@@ -340,38 +339,20 @@ export function hostChecks() {
         const noNetwork = ctx.flags?.noNetwork === true;
 
         // ARC-09-C47 — IS THIS RECORD EVIDENCE ABOUT CURRENCY? Three ways it is not, and each
-        // catches a different sighting from the owner's sitting. Only the third works on a record
-        // written by a build that predates this check.
-        // This tree's exact release tag, asked once: rule 2 below and ARC-09-C210's rule read it. Never under
-        // `--no-network`, whose contract is that the check spawns nothing.
+        // catches a different sighting from the owner's sitting: an upgrade wrote it; it describes a
+        // tree this one is not (the interrupted rc.5 -> rc.6 upgrade left `localTag: v2.0.0-rc.5` on
+        // a tree at rc.6); its `latestTag` is a prerelease. The rules are `recordSays`'s
+        // (`upgrade-record.mjs`, ARC-09-C199), and their sentences are the ones this check prints.
+        //
+        // This tree's exact release tag, asked once: rule 2 and ARC-09-C210's rule read it.
+        // `describeExact` answers null when HEAD is not exactly on a tag, and then rule 2 says nothing
+        // rather than guessing. NOT UNDER `--no-network`. That flag's contract is that the check
+        // spawns nothing — `tests/doctor/release-currency.test.mjs` asserts it — and `git describe`
+        // is a spawn even though it is local. Offline keeps rules 1 and 3, which are pure reads of the
+        // record, and says nothing about a disagreement it did not look for.
         const here = cached && !noNetwork ? describeExact(ctx.root, ctx.exec) : null;
-        const notCurrency = (() => {
-          if (!cached) return null;
-          // 1. An upgrade wrote it. It knows which tag it moved to and never asked what exists.
-          if (cached.source === 'upgrade') {
-            return "the last record is an upgrade's, not a currency check";
-          }
-          // 2. It describes a tree this one is not: the interrupted rc.5 -> rc.6 upgrade left
-          //    `localTag: v2.0.0-rc.5` on a tree at rc.6. `describeExact` answers null when HEAD
-          //    is not exactly on a tag, and then this says nothing rather than guessing.
-          //
-          //    NOT UNDER `--no-network`. That flag's contract is that the check spawns nothing —
-          //    `tests/doctor/release-currency.test.mjs` asserts it — and `git describe` is a
-          //    spawn even though it is local. Offline keeps checks 1 and 3, which are pure reads
-          //    of the record, and says nothing about a disagreement it did not look for.
-          if (cached.localTag && here && cached.localTag !== here) {
-            return `stale record from an interrupted upgrade (it describes ${cached.localTag}, `
-              + `this tree is ${here})`;
-          }
-          // 3. Its `latestTag` is a PRERELEASE, which this check's own live rule never stores.
-          //    So the record cannot be a currency measurement, whoever wrote it and whether or
-          //    not they stamped a source.
-          if (cached.latestTag && parseSemver(cached.latestTag)?.pre) {
-            return `the last record names a prerelease (${cached.latestTag}), which a currency `
-              + 'check never stores';
-          }
-          return null;
-        })();
+        const verdict = recordSays(cached, { here, now: now().getTime() });
+        const notCurrency = cached && !verdict.measurement ? verdict.why : null;
 
         if (noNetwork) {
           // ARC-09-C47 — a record that is not a currency measurement cannot answer offline
@@ -399,11 +380,11 @@ export function hostChecks() {
           }
           // ARC-09-C210 — A RECORD NO NEWER THAN THIS TREE'S RELEASE IS UP TO DATE, WHICHEVER TREE WROTE IT. U2 of a
           // move from a tree with no reachable tag records { localTag: null, behind: true }; rule 2 needs a localTag, so
-          // U7 answered from it, right after the move, that the release just installed was available.
-          const { compareSemver } = await import('../../semver.mjs');
-          let current = false;
-          try { current = Boolean(here) && compareSemver(cached.latestTag, here) <= 0; } catch { current = false; }
-          return cached.behind && !current
+          // U7 answered from it, right after the move, that the release just installed was available. The judge
+          // carries the rule now (ARC-09-C199); this branch only runs within a day of the check, so `speak` is
+          // `behind` and not `current` here.
+          const { current } = verdict;
+          return verdict.speak
             ? warn(`${cached.latestTag} available — run ${cliOf(ctx)} upgrade`,
               { command: `${cliOf(ctx)} upgrade`, data: { ...cached, refreshed: false } })
             : ok(`up to date (${current ? here : (cached.localTag ?? cached.latestTag)}) · last checked `

@@ -23,7 +23,7 @@ import * as B08 from './B08.mjs';
 import * as B09 from './B09.mjs';
 import { hashFor } from '../inputs.mjs';
 import { failureBlock, stepLine, stopLine } from './format.mjs';
-import { saveState } from '../state.mjs';
+import { checkoutKey, recordedHere, saveState } from '../state.mjs';
 import { EXIT_FAIL, EXIT_INTERRUPTED, EXIT_MEANING, EXIT_OK } from '../exit.mjs';
 import { spellings } from '../launcher-spelling.mjs';
 
@@ -93,6 +93,13 @@ export async function runSteps({ root, ctx, state, from = null, onLine = () => {
   // generated ARCHITECTURE table. A test driving FAKE steps has no table row for its invented ids
   // and passes its own; that is a test fixture, not a second source.
   hash: hashOf = (step) => hashFor(step.id, ctx) }) {
+  // ARC-09-C198 — A RECORD OF ANOTHER FOLDER IS NOT A RECORD OF THIS ONE. A copied `.local/` carried steps whose inputs
+  // hash the same in every checkout of a release, and they were cached where they had never run. A record that does
+  // not name this checkout, another folder's or one written before this release named any, keeps none of its steps,
+  // and names this checkout from here on. The two go together, so a key is only ever written beside steps that ran
+  // under it. The ENGINE root, never `.local/`'s (`state.mjs`).
+  if (!recordedHere(state, root, ctx.platform)) state.steps = {};
+  state.checkout = checkoutKey(root, ctx.platform);
   const summary = { ok: 0, warn: 0, fail: 0, skipped: 0, cached: 0 };
   // B09 composes the closing block; the runner carries it out so `--json` prints the SAME string a
   // human saw rather than a second rendering of it.

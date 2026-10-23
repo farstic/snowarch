@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { localDir } from '../../local-paths.mjs';
 
 import { makeExec, samePath } from '../../steps/B00.mjs';
-import { loadStateOrReason, STATE_VERSION } from '../../state.mjs';
+import { loadStateOrReason, notHereReason, recordedHere, STATE_VERSION } from '../../state.mjs';
 import { plannedSteps } from '../../steps/index.mjs';
 import { version as engineVersionOf } from '../../config.mjs';
 import { spellings } from '../../text.mjs';
@@ -688,6 +688,22 @@ export function engineRepoChecks() {
           // ARC-11-C6 (ruling R1) — B06 and B08 are planned only with a licence in force; with none here, the root's.
           licence: ctx.licence,
         });
+
+        // ARC-09-C198 — STEPS ANOTHER FOLDER RECORDED SAY NOTHING ABOUT THIS ONE. The cross-version sweep copied a
+        // finished `.local/` into a fresh checkout, and this check said "all current" over an install with no corpus
+        // and no `settings.local.json`. The runner keeps none of such a record's steps (`steps/index.mjs`), so their
+        // statuses and versions are not read here either; the remedy is the one every unfinished install gets.
+        if (!recordedHere(state, ctx.root, ctx.platform)) {
+          const why = notHereReason(state) === 'other-folder'
+            ? 'the recorded steps were run in another folder'
+            : 'the record was written before this release and does not say which folder its steps ran in';
+          return fail(`bootstrap incomplete since ${current ?? 'this version'}: ${why}`, {
+            remedy: spellings({ platform: ctx.platform, env: ctx.env }).bootstrap,
+            command: spellings({ platform: ctx.platform, env: ctx.env }).bootstrap,
+            data: { expected: expected.map((s) => s.id), problems: [], stale: [], engineVersion: current,
+              recordedHere: false, reason: notHereReason(state) },
+          });
+        }
 
         // THE STEP RUNNING THIS CHECK IS NOT A STEP THAT NEVER RAN.
         //

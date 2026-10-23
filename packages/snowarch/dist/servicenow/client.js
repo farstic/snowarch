@@ -470,6 +470,10 @@ export class ServiceNowClient {
                 queryParams.set('sysparm_query', params.query);
             }
         }
+        // ARC-09-C205 — the stored value and the label of every field, passed through as the instance sends them. Only for
+        // 'all', and set last, so a call without it sends today's request byte for byte.
+        if (params.displayValue === 'all')
+            queryParams.set('sysparm_display_value', 'all');
         const url = `${this.baseUrl}/api/now/table/${params.table}?${queryParams.toString()}`;
         logger.info(`Querying ServiceNow table: ${params.table}`);
         logger.debug(`Query: ${this.maskQuery(params.query)}`);
@@ -564,7 +568,7 @@ export class ServiceNowClient {
             return query;
         return query.split(user).join('<user>');
     }
-    async getRecord(table, sysId, fields) {
+    async getRecord(table, sysId, fields, displayValue) {
         validateTableName(table);
         validateSysId(sysId);
         await this.authenticate();
@@ -572,6 +576,9 @@ export class ServiceNowClient {
         if (fields) {
             queryParams.set('sysparm_fields', fields);
         }
+        // ARC-09-C205 — as queryRecords: only for 'all', and last.
+        if (displayValue === 'all')
+            queryParams.set('sysparm_display_value', 'all');
         const url = `${this.baseUrl}/api/now/table/${table}/${sysId}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
         logger.info(`Getting record from ${table}: ${sysId}`);
         try {

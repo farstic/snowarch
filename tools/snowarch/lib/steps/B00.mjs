@@ -17,10 +17,11 @@
 // been uninstalled.
 import { execFileSync } from 'node:child_process';
 import { batchCommand, isBatch } from '../spawn-batch.mjs';
-import { realpathSync, statfsSync } from 'node:fs';
+import { statfsSync } from 'node:fs';
 import { arch, platform, release } from 'node:os';
-import { posix, resolve, win32 } from 'node:path';
+import { resolve } from 'node:path';
 import { EXIT_PREREQ } from '../exit.mjs';
+import { pathKey } from '../path-key.mjs';
 import { remedyFor } from '../remedies.mjs';
 import { formatVersion, meetsFloor, parseVersion } from '../versions.mjs';
 import { MODE, RETRY_WAITS_MS, attemptSuffix } from '../docs/sync.mjs';
@@ -99,30 +100,11 @@ const fail = (id2, detail, remedy, extra = {}) => ({ id: id2, status: 'fail', de
  * `/var` are symlinks, home directories are often symlinked on managed machines, and git always
  * reports the resolved path — so a checkout reached through a link compared unequal to itself and
  * the user was told to `cd` to the directory they were already standing in.
+ *
+ * ARC-09-C198 — the normalisation is `pathKey` (`../path-key.mjs`), moved there unchanged, because the bootstrap
+ * state's record of its folder needs the same rule written down as a key.
  */
-export const samePath = (a, b, plat = process.platform) => {
-  const norm = (p) => {
-    let x = String(p).trim();
-    // `realpath` first: on macOS `/tmp` and `/var` are symlinks, managed machines symlink home
-    // directories, and git always reports the resolved path.
-    // `.native` is not a detail on Windows: the plain `realpathSync` resolves junctions but leaves
-    // an 8.3 SHORT name alone, so the runner's `C:\Users\RUNNER~1\...` stayed short while git
-    // reported `C:/Users/runneradmin/...` long — one directory, two names, compared unequal. The
-    // native call goes through `GetFinalPathNameByHandle` and canonicalises both.
-    try { x = realpathSync.native(x); } catch {
-      try { x = realpathSync(x); } catch { /* a path that does not exist yet still normalises */ }
-    }
-    // Then the PLATFORM'S OWN resolver, chosen by the parameter rather than by which machine is
-    // running. `path.resolve` is whichever flavour the host is, so on macOS it leaves
-    // `C:/Users/...` untouched and the Windows branch could not be exercised anywhere but
-    // Windows — which is how it shipped broken: git prints forward slashes there, Node hands
-    // back backslashes, and every command exited 3 saying "not at the repository root".
-    // Windows paths are also case-insensitive, so `D:\A\repo` and `D:\a\repo` are one place.
-    if (plat === 'win32') return win32.resolve(x.replace(/\//g, '\\')).toLowerCase();
-    return posix.resolve(x);
-  };
-  return norm(a) === norm(b);
-};
+export const samePath = (a, b, plat = process.platform) => pathKey(a, plat) === pathKey(b, plat);
 
 export function checkRoot({ root, cwd, exec, plat }) {
   const remedy = remedyFor('root', { platform: plat, values: { root } });

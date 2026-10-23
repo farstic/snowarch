@@ -28,7 +28,7 @@ macOS / Linux:
 
 ```sh
 mv snowarch snowarch-2.2.0
-git -c advice.detachedHead=false clone --branch v2.2.3 https://github.com/farstic/snowarch.git snowarch
+git -c advice.detachedHead=false clone --branch v2.2.4 https://github.com/farstic/snowarch.git snowarch
 cd snowarch
 mkdir -p .local .claude
 cp -p ../snowarch-2.2.0/.local/licence.json ../snowarch-2.2.0/.local/instances.json .local/
@@ -43,7 +43,7 @@ Windows PowerShell:
 
 ```powershell
 Rename-Item snowarch snowarch-2.2.0
-git -c advice.detachedHead=false clone --branch v2.2.3 https://github.com/farstic/snowarch.git snowarch
+git -c advice.detachedHead=false clone --branch v2.2.4 https://github.com/farstic/snowarch.git snowarch
 cd snowarch
 New-Item -ItemType Directory -Force .local, .claude | Out-Null
 Copy-Item ..\snowarch-2.2.0\.local\licence.json, ..\snowarch-2.2.0\.local\instances.json .local\
@@ -181,13 +181,13 @@ Get-ChildItem memory, scratchpad, deliverables, diagram-preview -ErrorAction Sil
 macOS / Linux:
 
 ```sh
-git -c advice.detachedHead=false clone --branch v2.2.3 https://github.com/farstic/snowarch.git && cd snowarch && ./bootstrap.sh
+git -c advice.detachedHead=false clone --branch v2.2.4 https://github.com/farstic/snowarch.git && cd snowarch && ./bootstrap.sh
 ```
 
 Windows PowerShell:
 
 ```powershell
-git -c advice.detachedHead=false clone --branch v2.2.3 https://github.com/farstic/snowarch.git
+git -c advice.detachedHead=false clone --branch v2.2.4 https://github.com/farstic/snowarch.git
 cd snowarch
 .\bootstrap.cmd
 ```

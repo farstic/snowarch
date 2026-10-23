@@ -15,9 +15,11 @@
 // It is read by more than the bootstrap: `docsStatus()` (ARC-03-S06) reads `docs.mode`, and the
 // `/snowarch status` skill reads `mode` when the doctor cannot run. That is why `docs.mode` is
 // nested exactly where it is, and why the shape is versioned.
+import { createHash } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { EXIT_FAIL } from './exit.mjs';
+import { pathKey } from './path-key.mjs';
 import { statePath as statePathOf, doctorCachePath as doctorCachePathOf }
   from './local-paths.mjs';
 import { isSecretKey, redact } from './redact.mjs';
@@ -267,12 +269,46 @@ export function resetState(root) {
 }
 
 /**
+ * ARC-09-C198 — WHICH FOLDER THE RECORDED STEPS RAN IN.
+ *
+ * A step is cached when its recorded hash matches its inputs, and B02's, B03's and B07's inputs are the same files in
+ * every checkout of a release. So a record copied from another folder — the cross-version sweep carried a 2.2.0 one
+ * into a fresh checkout — marked those steps done where they had never run: no corpus, no `settings.local.json`, and
+ * E-29 saying "all current". The record now names its folder, and only a record that names this one is this
+ * checkout's.
+ *
+ * A KEY, NOT THE PATH. `assertStorable` refuses any value the redactor would rewrite, and the bootstrap registers the
+ * instance's password with the redactor (`instance-file.mjs`), so a folder path that held the password would make
+ * every save throw. The sha256 of the path's `pathKey`, the spelling B00's `samePath` compares, names the folder as
+ * well, and keeps the path out of the file.
+ *
+ * The ENGINE root, never `.local/`'s: CI copies `.local/` into `SNOWARCH_STATE_ROOT` for the doctor, and that copy
+ * is still its checkout's record. Only the runner writes the key (`steps/index.mjs`), and only together with
+ * dropping the steps it cannot vouch for.
+ */
+export const checkoutKey = (root, plat = process.platform) =>
+  createHash('sha256').update(pathKey(root, plat)).digest('base64url');
+
+/** Whether `state` is a record of the checkout at `root`. A record that names no folder is not. */
+export const recordedHere = (state, root, plat = process.platform) =>
+  typeof state?.checkout === 'string' && state.checkout === checkoutKey(root, plat);
+
+/**
+ * Why a record is not this checkout's: `other-folder` when it names another folder, and `no-folder` when it names
+ * none, as every record written before this release does, and every record the launchers write.
+ */
+export const notHereReason = (state) => (typeof state?.checkout === 'string' ? 'other-folder' : 'no-folder');
+
+/**
  * Which steps would run again, and why.
  *
  * ARC-09-S05. The resume rule lives in the runner — skip a step whose recorded hash still matches —
  * and this is the same question asked from outside, for a user who wants to know what running
  * `bootstrap` again is about to do, and for `upgrade` (ARC-09-S07), which needs to say what a new
  * version invalidates before it changes anything.
+ *
+ * ARC-09-C198 adds two that come before the rest: a step recorded by a record that is not this checkout's runs
+ * (`other-folder`, `no-folder`), because the runner keeps none of that record's steps.
  *
  * Four reasons, and the fourth is the one that surprises people:
  *
@@ -289,6 +325,7 @@ export function staleSteps(state, ctx, { hashFor, steps = null, alwaysRuns = () 
   if (typeof hashFor !== 'function') throw new TypeError('staleSteps needs hashFor');
   const ids = steps ?? Object.keys(state?.steps ?? {});
   const out = [];
+  const notHere = recordedHere(state, ctx?.root, ctx?.platform) ? null : notHereReason(state);
 
   for (const step of ids) {
     // A step that runs every time is not STALE — it is unconditional, and listing it would put
@@ -299,6 +336,12 @@ export function staleSteps(state, ctx, { hashFor, steps = null, alwaysRuns = () 
     if (alwaysRuns(step)) continue;
 
     const recorded = state?.steps?.[step];
+    // ARC-09-C198 — a step another folder recorded, or a record that names no folder, says nothing about this one.
+    // A step with no record at all has simply not run, and keeps that reason.
+    if (recorded && notHere) {
+      out.push({ step, reason: notHere, changed: [] });
+      continue;
+    }
     // A step recorded `skipped` was decided against by `runsWhen` — design-only never installs
     // dependencies — so it holds no result to reuse. It has not run in this checkout, and the
     // detail says which of the two ways that came about.
@@ -336,6 +379,8 @@ export function explainStale(stale) {
     failed: 'did not succeed last time',
     'inputs-changed': 'its inputs changed',
     'launcher-recorded': 'was recorded by a launcher, which cannot compute the hash',
+    'other-folder': 'was recorded in another folder',
+    'no-folder': 'was recorded without a folder',
   };
   return stale.map(({ step, reason, changed = [], detail }) => {
     const why = REASON[reason] ?? reason;

@@ -40,24 +40,25 @@ export const MAX_AGE_MS = 24 * 60 * 60 * 1000;
  * How old an upgrade check may be before the banner stops repeating it (ARC-09-S07).
  *
  * Inlined rather than imported from `lib/upgrade-check.mjs`, and that is the one duplication this
- * file accepts on purpose: the hook's whole budget is 300 ms on a machine that may have no Node,
- * and its rule is to read two JSON files and import nothing. A dynamic import here would put a
- * module resolution on the critical path to save a constant. `tests/hook/session-start.test.mjs`
- * asserts the two numbers agree.
+ * file accepts on purpose: the hook's whole budget is 300 ms on a machine that may have no Node.
+ * Its rule, as measured for ARC-09-C199, is lazy modules on the banner path, never the doctor, and
+ * constants inlined: a dynamic import here would put a module resolution on the critical path to
+ * save a constant. `tests/hook/session-start.test.mjs` asserts the two numbers agree.
  */
 export const UPGRADE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * A check from the future is not fresh either: a clock that went backwards must not pin a nudge.
+ * ARC-09-C199 — this tree's release, for the upgrade record's judge: `v<version of record>`, or null on a
+ * development tree.
  *
- * `nowMs` is a NUMBER, because that is what this file's `now` has always been (`Date.now()`), and
- * a second convention inside one module is how a `now()` gets called on a number.
+ * E-28 asks git (`describe --tags --exact-match`); the banner spawns nothing, so it reads `package.json`, which a
+ * release tree carries at its tag. They can differ on one tree: a release with commits on top of its tag, where
+ * E-28's answer is null and this one is the tag. There the banner can be quieter than E-28, never louder, because
+ * `here` only ever silences a record (rule 2, ARC-09-C210).
  */
-function freshUpgradeCheck(upgrade, nowMs) {
-  const at = Date.parse(upgrade?.checkedAt ?? '');
-  if (Number.isNaN(at)) return false;
-  const age = nowMs - at;
-  return age >= 0 && age < UPGRADE_MAX_AGE_MS;
+function releaseOf(root) {
+  const version = readJson(join(root, 'package.json'))?.version;
+  return typeof version === 'string' && version && !/-dev\b/.test(version) ? `v${version}` : null;
 }
 
 /** Read a JSON file, or `null`. A malformed cache is a stale cache, never a crash. */
@@ -75,7 +76,7 @@ function readJson(path) {
  * `first` is only a first run when THIS invocation created the cache: a design-only checkout that
  * has been running for a month does not need to be told again every session.
  */
-function nudges({ report, cache, banner, firstRun, upgrade, now = Date.now(),
+function nudges({ report, cache, banner, firstRun, upgrade, upgradeSays,
   // ARC-07-C31 — the spelling the banner's lines are rendered with. Passed, not read: this function
   // is handed its `banner` too, so reading a shell here would be the one thing in it that came from
   // somewhere other than its arguments.
@@ -83,12 +84,12 @@ function nudges({ report, cache, banner, firstRun, upgrade, now = Date.now(),
   const lines = [];
   const instances = report?.server?.instances ?? cache?.server?.instances ?? [];
   if (firstRun && report?.mode !== 'live' && instances.length === 0) lines.push(banner.firstRun(spell));
-  // FRESH, not merely present (ARC-09-S07). A `behind: true` from a fortnight ago is a claim
-  // nobody has checked since; printing it every session teaches a reader to skip the line, and
-  // then the one that matters is skipped too. Expired means SILENCE — never a hedged nudge.
-  if (upgrade?.behind === true && upgrade.latestTag && freshUpgradeCheck(upgrade, now)) {
-    lines.push(banner.upgrade(upgrade.latestTag, spell));
-  }
+  // ARC-09-C199 — what the record says, as E-28 reads it (`upgrade-record.mjs`): a measurement, FRESH
+  // and not merely present (ARC-09-S07), that says behind, of a release newer than this one. A
+  // `behind: true` from a fortnight ago, one an upgrade wrote, one from another tree, one naming a
+  // prerelease: each is SILENCE, never a hedged nudge, since a line that is wrong teaches a reader
+  // to skip it, and then the one that matters is skipped too.
+  if (upgradeSays?.speak) lines.push(banner.upgrade(upgrade.latestTag, spell));
   const stale = report?.stale?.claudeJsonEntries ?? cache?.report?.stale?.claudeJsonEntries ?? [];
   if (stale.some((e) => e.scope === 'this-folder')) lines.push(banner.staleRegistration(spell));
   const fail = report?.summary?.fail ?? cache?.summary?.fail ?? 0;
@@ -223,6 +224,11 @@ export async function banner({ root = ROOT, now = Date.now(), watchdogMs = WATCH
   const cache = readJson(cachePath(root));
   const inputs = readJson(inputsPath(root));
   const upgrade = readJson(join(root, '.local', 'upgrade-check.json'));
+  // ARC-09-C199 — the judge E-28 uses, loaded only when there is a record to judge.
+  const upgradeSays = upgrade
+    ? (await import('../lib/upgrade-record.mjs')).recordSays(upgrade,
+      { here: releaseOf(root), now, maxAgeMs: UPGRADE_MAX_AGE_MS })
+    : null;
 
   // 1. The fast path. Nothing beyond these two files has been read, and nothing else will be.
   const staleness = cacheStale(root, { now, maxAgeMs: MAX_AGE_MS });
@@ -231,7 +237,7 @@ export async function banner({ root = ROOT, now = Date.now(), watchdogMs = WATCH
     say(cache.modeLine);
     say(licence);
     say(integrity);
-    for (const line of nudges({ cache, banner: BANNER, firstRun: false, upgrade, now, spell: spellings() })) say(line);
+    for (const line of nudges({ cache, banner: BANNER, firstRun: false, upgrade, upgradeSays, spell: spellings() })) say(line);
     phase.mark('render');
     phase.done('cache');
     return { path: 'cache', lines: out };
@@ -272,7 +278,7 @@ export async function banner({ root = ROOT, now = Date.now(), watchdogMs = WATCH
   say(report.modeLine);
   say(licence);
   say(integrity);
-  for (const line of nudges({ report, banner: BANNER, firstRun: cache === null, upgrade, now, spell: spellings() })) say(line);
+  for (const line of nudges({ report, banner: BANNER, firstRun: cache === null, upgrade, upgradeSays, spell: spellings() })) say(line);
   phase.mark('render');
   phase.done('rerun');
   return { path: 'rerun', lines: out };

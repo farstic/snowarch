@@ -550,6 +550,21 @@ instance lacks it is observed behaviour.
 **Engine consequence:** none in the tools. Before a resolve, the Architect reads the active `incident.close_code`
 choices from `sys_choice`, does not guess, and asks the user, as it did in the sweep.
 
+## PN-24 — Under `sysparm_display_value=all` every field is an object: the stored value beside its label
+
+**Applies to:** the REST Table API, `GET /api/now/table/<table>` with `sysparm_display_value=all` · observed on a
+maintainer's Brazil-family PDI, 2026-10-22
+**Behaviour:** every field comes back as `{ "display_value": …, "value": … }`. A reference field adds `link`; its
+`value` is the 32-character sys_id and its `display_value` the referenced record's display name. A choice field's
+`value` is the stored code and its `display_value` the label. A plain string field carries the same text in both.
+**Grounding:** the corpus documents the parameter (`markdown/api-reference/rest-apis/c_TableAPI.md`), not this shape;
+the shape is observed behaviour.
+**Evidence:** one read-only GET of `incident`, `sysparm_fields=number,state,priority,assignment_group`,
+`sysparm_limit=1`, through a 2.2.3-rc.1 install's own client, its output masked to keys, types and lengths
+(ARC-09-C205).
+**Engine consequence:** `display_value: 'all'` on `snow_core_records_query` and `snow_core_record_read` passes this
+shape through unchanged. The stored `value` is the one any query, filter or write uses (ARC-09-C205).
+
 ## Windows notes — this repository, not ServiceNow
 
 The notes above are ServiceNow behaviour. These are about the machine the engine runs on, and they

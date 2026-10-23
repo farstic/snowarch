@@ -28,6 +28,14 @@
         "orderBy": {
           "type": "string",
           "description": "Field to sort by. Prefix with \"-\" for descending"
+        },
+        "display_value": {
+          "type": "string",
+          "enum": [
+            "false",
+            "all"
+          ],
+          "description": "For a list a person will read, pass display_value: 'all' with `fields`: each field then carries its stored value and its label. Show a field as 'Label (value)' when the two differ (choices, references, dates), and once when they are equal. A date's label is in the user's format and time zone; its stored value is UTC. Use only the stored value in any query, filter, encoded query or write, never the label. Default 'false' returns stored values only, as before; 'true' is refused."
         }
       },
       "required": [
@@ -74,6 +82,14 @@
         "fields": {
           "type": "string",
           "description": "Optional comma-separated fields"
+        },
+        "display_value": {
+          "type": "string",
+          "enum": [
+            "false",
+            "all"
+          ],
+          "description": "For a list a person will read, pass display_value: 'all' with `fields`: each field then carries its stored value and its label. Show a field as 'Label (value)' when the two differ (choices, references, dates), and once when they are equal. A date's label is in the user's format and time zone; its stored value is UTC. Use only the stored value in any query, filter, encoded query or write, never the label. Default 'false' returns stored values only, as before; 'true' is refused."
         }
       },
       "required": [

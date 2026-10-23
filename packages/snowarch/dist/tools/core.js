@@ -3,6 +3,40 @@ import { ServiceNowError } from '../utils/errors.js';
 import { requireWrite } from '../utils/permissions.js';
 import { instanceManager } from '../servicenow/instances.js';
 import { currentCapabilities, reloadInstances, serverStatus } from './status.js';
+/**
+ * ARC-09-C205 — `display_value` on the two read tools, and the one presentation instruction the model gets.
+ *
+ * The owner's live read returned codes a person cannot read (state 6, priority 3, a group's sys_id), and a second
+ * call for the labels. Under `sysparm_display_value=all` every field is { display_value, value }, and a reference adds
+ * `link` (the owner's probe, 2026-10-22). The stored value stays the only truth for any logic; the label is for a
+ * person reading. Not in the contract, which carries names, gates and `mutates` only, so no generated line moves.
+ */
+const DISPLAY_VALUE = {
+    type: 'string',
+    enum: ['false', 'all'],
+    description: 'For a list a person will read, pass display_value: \'all\' with `fields`: each field then carries its '
+        + 'stored value and its label. Show a field as \'Label (value)\' when the two differ (choices, references, dates), '
+        + 'and once when they are equal. A date\'s label is in the user\'s format and time zone; its stored value is UTC. '
+        + 'Use only the stored value in any query, filter, encoded query or write, never the label. Default \'false\' '
+        + 'returns stored values only, as before; \'true\' is refused.',
+};
+/** Why 'true' is refused: the reason, said where the refusal is. */
+const DISPLAY_VALUE_TRUE_REFUSED = 'display_value \'true\' is refused: it returns labels only, without the stored values, '
+    + 'and dates in the user\'s time zone that would shift if written back. Pass \'all\' for both.';
+/**
+ * The request a `display_value` argument asks for, decided before anything is sent: absent, 'false' or false is
+ * today's request; 'all' adds `sysparm_display_value=all`; 'true', or true, is refused with its reason; anything
+ * else is refused.
+ */
+function displayValueOf(value) {
+    if (value === undefined || value === 'false' || value === false)
+        return undefined;
+    if (value === 'all')
+        return 'all';
+    if (value === 'true' || value === true)
+        throw new ServiceNowError(DISPLAY_VALUE_TRUE_REFUSED, 'INVALID_REQUEST');
+    throw new ServiceNowError('display_value is \'false\' or \'all\'', 'INVALID_REQUEST');
+}
 export function coreToolManifest() {
     return [
         {
@@ -20,6 +54,7 @@ export function coreToolManifest() {
                     limit: { type: 'number', description: `Max records (default: the instance's maxRecords, ${DEFAULT_MAX_RECORDS} unless the store sets one; max ${MAX_PAGE})` },
                     offset: { type: 'number', description: 'Records to skip before the first one returned (default 0). To read the next page of a truncated answer, repeat the call with offset set to this answer\'s offset + count, until truncated is false.' },
                     orderBy: { type: 'string', description: 'Field to sort by. Prefix with "-" for descending' },
+                    display_value: DISPLAY_VALUE,
                 },
                 required: ['table'],
             },
@@ -48,6 +83,7 @@ export function coreToolManifest() {
                     table: { type: 'string', description: 'Table name' },
                     sys_id: { type: 'string', description: '32-character system ID' },
                     fields: { type: 'string', description: 'Optional comma-separated fields' },
+                    display_value: DISPLAY_VALUE,
                 },
                 required: ['table', 'sys_id'],
             },
@@ -380,7 +416,8 @@ export async function dispatchCoreAction(client, name, args) {
             const params = args;
             if (!params.table)
                 throw new ServiceNowError('Table name is required', 'INVALID_REQUEST');
-            const response = await client.queryRecords(params);
+            const displayValue = displayValueOf(args.display_value);
+            const response = await client.queryRecords({ ...params, displayValue });
             // ARC-09-C125 — whether the read was cut, per page. With a total, more remain past this page; without one,
             // the page filled its limit, which is all a caller can know: "reached the limit", not "proven cut".
             const offset = response.offset ?? params.offset ?? 0;
@@ -405,7 +442,8 @@ export async function dispatchCoreAction(client, name, args) {
             const p = args;
             if (!p.table || !p.sys_id)
                 throw new ServiceNowError('table and sys_id are required', 'INVALID_REQUEST');
-            const record = await client.getRecord(p.table, p.sys_id, p.fields);
+            const displayValue = displayValueOf(args.display_value);
+            const record = await client.getRecord(p.table, p.sys_id, p.fields, displayValue);
             const absent = record && typeof record === 'object' ? notReturned(p.fields, [record]) : [];
             return absent.length > 0 ? { ...record, fields_not_returned: absent } : record;
         }

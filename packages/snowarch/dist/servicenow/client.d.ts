@@ -90,7 +90,7 @@ export declare class ServiceNowClient {
      * prints, which is documented — it removes the ONE value the server itself put there.
      */
     private maskQuery;
-    getRecord(table: string, sysId: string, fields?: string): Promise<ServiceNowRecord>;
+    getRecord(table: string, sysId: string, fields?: string, displayValue?: 'all'): Promise<ServiceNowRecord>;
     /**
      * Get user details by email or username
      */

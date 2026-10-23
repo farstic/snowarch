@@ -36,6 +36,12 @@ export interface QueryRecordsParams {
     orderBy?: string;
     offset?: number;
     /**
+     * ARC-09-C205 — 'all' asks for the stored value and the label of every field (`sysparm_display_value=all`), passed
+     * through as the instance sends them. Unset sends today's request. The tool decides it from its `display_value`
+     * argument, which refuses 'true'.
+     */
+    displayValue?: 'all';
+    /**
      * Attempts AFTER the first. Unset keeps the client's own policy (3 by default, with backoff). It can
      * only LOWER that policy: a larger value, or one that is not a non-negative integer, is held to it,
      * because this field is reachable from a tool argument.

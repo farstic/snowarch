@@ -9,6 +9,91 @@ All notable changes to this project are documented in this file. Everything hand
 
 ### Notes
 
+## 2.2.4 — 2026-10-23
+
+### Notes
+
+**A patch release: a live list shows labels instead of bare codes, a copied folder no longer passes for an installed
+one, and the update banner and `upgrade --to` say only what is true.** Asked for records, the Architect reads each
+field's label and stored value in one call and shows a state as "Resolved (6)"; every query and filter still uses the
+stored value, and writes are unchanged. The bootstrap record is now bound to the folder it was written in, so another
+install's `.local/` copied into a new folder no longer passes for a finished install. One consequence on every existing
+install: the first bootstrap after upgrading to 2.2.4 runs each of its steps once more, the documentation check included
+and, in live mode, the dependency install, and the plan that 2.2.3's own `upgrade` prints does not show that. The
+session banner no longer announces a newer release that the doctor would not, and `upgrade --to` a version that
+github.com/farstic/snowarch does not carry now says so.
+
+### Fixed
+
+- A `.local/bootstrap-state.json` copied from another folder no longer marks its steps done here: the record is bound
+  to the folder it was written in, and one from another folder, or written before this release, has its steps run
+  again (ARC-09-C198).
+- The SessionStart banner said a newer release was available from an upgrade-check record that `./snowarch doctor`
+  does not take as a check of this checkout: one an upgrade wrote, one that describes a different release than the
+  one installed, one naming a prerelease, or one no newer than the installed release. It now reads the record as the
+  doctor does, and says nothing for such a record (ARC-09-C199).
+- On an install from github.com/farstic/snowarch, `./snowarch upgrade --to` a tag that is not there (a release
+  candidate, or a release before 2.2.1) said it was not a release tag of this product. It now says the tag is not in
+  that repository, which carries final releases from 2.2.1 on; a tag that is there but is no release keeps its
+  sentence (ARC-09-C201).
+
+### Added
+
+- Live reads can return a field's label beside its stored value in one call: `snow_core_records_query` and
+  `snow_core_record_read` take `display_value: 'all'`, so a list shows "Resolved (6)" instead of a bare code, while
+  every query and filter keeps using the stored value. A call without it is unchanged, and `'true'` is refused
+  (ARC-09-C205).
+
+### Added
+
+- server: ARC-09-C205, display_value 'all' on the two read tools (055e7aa)
+
+### Fixed
+
+- engine: ARC-09-C201, an absent tag is told apart from a tag that is no release (182c658)
+- doctor: ARC-09-C199, the banner reads the upgrade record as E-28 does (0f17827)
+- tests: ARC-09-C219, every repository a test file makes goes through initFixtureRepo (6755465)
+- bootstrap: ARC-09-C198, a state file copied from another folder is not trusted (42e483f)
+- tests: ARC-09-C218, every fixture repository has git's automatic maintenance off (6409693)
+
+### Internal
+
+- plan: ARC-09-C205, ACCEPTED on the owner's live sitting, 2026-10-23 (716c5ff)
+- changelog: the 2.2.4 notes say what the owner's sitting measured (9eec5a9)
+- changelog: the 2.2.4 notes, as the architect ruled them (0c851a6)
+- changelog: ARC-09-C205, the server package entry for display_value (ea39ab2)
+- ARC-09-C205, PN-24 names the instance's family, Brazil, as the owner confirmed (45dd432)
+- server: ARC-09-C205, the schema case reads the property through a typed record (31b1738)
+- changelog: ARC-09-C205, live reads can return a field's label beside its value (0f4de28)
+- ARC-09-C205, PN-24, under display_value 'all' each field carries value and label (069c129)
+- plan: ARC-09-C205, BUILT for 2.2.4, with the audit and the live acceptance (4c0c352)
+- server: ARC-09-C205, the test's header warns that the mock repeats its last answer (5ba3e7a)
+- server: ARC-09-C205, red: display_value on the two read tools (3982379)
+- plan: ARC-09-C201, the row notes the first run's Windows red was the fixture (9e37dc3)
+- tests: ARC-09-C201, the world takes the product's line endings (8d189c9)
+- plan: ARC-12 in the plans index and the roadmap, as a future plan (e57c5ad)
+- plan: ARC-12, a future plan for a local console, recorded and not started (7321c24)
+- plan: ARC-09-C201, the row: an absent tag named as absent, built for 2.2.4 (603c1f4)
+- changelog: ARC-09-C201, an absent tag no longer reads as one that is no release (8f86fa8)
+- tests: ARC-09-C201, red: an absent tag is told apart from one that is no release (0192dfd)
+- tests: ARC-09-C199, the tests take their versions as the version guards require (97007ef)
+- changelog: ARC-09-C199, the banner reads the upgrade record as the doctor does (43382e9)
+- plan: ARC-09-C199, the row: one judge for the upgrade record, built for 2.2.4 (e750315)
+- tests: ARC-09-C199, red: the banner reads the upgrade record as E-28 does (d1c248e)
+- plan: ARC-09-C219, the row; C218's count corrected and pointed at C219 (ce8fb95)
+- tests: ARC-09-C219, red: every repository a test file makes has maintenance off (e2705cd)
+- changelog: ARC-09-C198, a copied state file no longer marks its steps done (9b0c276)
+- plan: ARC-09-C198, the row: a state file names its folder, built for 2.2.4 (88d7488)
+- tests: ARC-09-C198, red: a carried bootstrap record is not this checkout's (9090c96)
+- tests: ARC-09-C218, the count's control assembles its planted init, as C14 requires (f7a6bad)
+- plan: ARC-09-C218, the row: a fixture's copy races git's detached maintenance (731fdea)
+- tests: ARC-09-C218, the guard's header says the probe reproduced the race under load (b7a13bf)
+- tests: ARC-09-C218, red: no git process outlives a fixture repository's commit (3159c34)
+- plan: ARC-09-C217, the row: PARKED, both AFTERs failed and nothing of #510 ships (463323e)
+- plan: ARC-09 rows shipped in 2.2.3, release commit c0da72f (c6198b1)
+
+Tag v2.2.4 · contract a6084c514b4c · docs-pin aa447ce
+
 ## 2.2.3 — 2026-10-21
 
 ### Notes
