@@ -22,6 +22,7 @@ import { which } from '../which.mjs';
 import { FILE, TEXT } from './inputs.mjs';
 import { INPUTS } from '../inputs.mjs';
 import { spellings } from '../launcher-spelling.mjs';
+import { MB, megabytes } from '../size.mjs';
 
 export const id = 'B04';
 export const title = 'deps';
@@ -114,7 +115,7 @@ export function resolutionCheck(root, { requireFrom = createRequire } = {}) {
 }
 
 /**
- * `, ~68 MB` — the size this checkout measured LAST time, or nothing at all.
+ * `, ~71 MB` — the size this checkout measured LAST time, or nothing at all.
  *
  * ARC-08-C23 — the line said `~72 MB`, hand-typed, and it was wrong twice over: it is the `du`
  * figure from ARC-01-S05 while the step itself reports summed content two screens later (the two
@@ -130,7 +131,7 @@ export function resolutionCheck(root, { requireFrom = createRequire } = {}) {
 export function installSizeHint(state, { round = Math.round } = {}) {
   const bytes = state?.steps?.B04?.data?.sizeBytes;
   if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes <= 0) return '';
-  return `, ~${round(bytes / (1024 * 1024))} MB last time`;
+  return `, ~${round(bytes / MB)} MB last time`;
 }
 
 
@@ -174,7 +175,7 @@ export const run = async (ctx) => {
   const sizeBytes = directorySize(join(ctx.root, 'node_modules'));
   return {
     status: 'ok',
-    detail: `${deps.length} dependencies${sizeBytes ? `, ${Math.round(sizeBytes / (1024 * 1024))} MB` : ''}`,
+    detail: `${deps.length} dependencies${sizeBytes ? `, ${megabytes(sizeBytes)} MB` : ''}`,
     data: { npmVersion: version, durationMs: Date.now() - started, sizeBytes },
   };
 };

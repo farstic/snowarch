@@ -6,6 +6,7 @@
 // absent, so a fresh clone passed with every citation unverified. That is the defect this file
 // exists to remove: a missing corpus is `missing`, never `ok`, and the word SKIP appears nowhere.
 import { existsSync, realpathSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join, sep } from 'node:path';
 import { scanRepo } from './citations.mjs';
 import { needSpell, spellings } from '../launcher-spelling.mjs';
@@ -60,11 +61,36 @@ export function verifyCitations({ root = process.cwd(), corpusDir = 'vendor/Serv
       } catch { /* realpath can fail on odd filesystems; the existsSync above already passed */ }
     }
   }
+  classify(corpus, dead);
   return {
     status: dead.length ? 'fail' : 'ok',
     checked: byOrigin.size,
     dead, areasMissing: [], warnings, allowMissing,
   };
+}
+
+/**
+ * ARC-09-C239 — dead means absent from the corpus tree at the pin, not merely absent from disk. Each dead entry gains
+ * `reason`: `outside` when the corpus's own tree has the page (a real page this install did not check out: a sparse
+ * corpus, or a switch to the whole one that did not finish), `missing` when it does not. The paths go to the tree in a
+ * few reads: the blobless clone holds every tree, so nothing is fetched, and `protocol.allow=never` turns a missing
+ * object into an error instead of a network fetch. With no git directory, or a git that fails, every entry stays
+ * `missing`, so a reader can over-report and never hide. The gate fails on both; only the citation hook reads it.
+ */
+function classify(corpus, dead) {
+  for (const d of dead) d.reason = 'missing';
+  if (dead.length === 0 || !existsSync(join(corpus, '.git'))) return;
+  const inTree = new Set();
+  for (let i = 0; i < dead.length; i += 100) {                // a command line has a length limit on Windows
+    let listed;
+    try {
+      listed = execFileSync('git', ['-c', 'protocol.allow=never', '--literal-pathspecs', '-C', corpus, 'ls-tree', '-z',
+        '--name-only', 'HEAD', '--', ...dead.slice(i, i + 100).map((d) => d.path)],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 16 * 1024 * 1024 });
+    } catch { return; }
+    for (const p of listed.split('\0')) if (p) inTree.add(p);
+  }
+  for (const d of dead) if (inTree.has(d.path)) d.reason = 'outside';
 }
 
 /**
@@ -79,7 +105,7 @@ export function formatResult(r, spell) {
   if (r.status === 'missing') {
     lines.push(r.allowMissing
       ? 'citations: not verified until the corpus is present'
-      : `corpus missing — run ${spell.bootstrap} --docs sparse (or ${spell.cli} docs sync)`);
+      : `corpus missing — run ${spell.bootstrap} (or ${spell.cli} docs sync)`);
     return { text: lines.join('\n'), code: r.allowMissing ? EXIT.ok : EXIT.missing };
   }
   for (const d of r.dead) {

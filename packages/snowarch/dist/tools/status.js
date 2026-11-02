@@ -99,6 +99,36 @@ export function serverStatus() {
         auditFile: null,
     };
 }
+/**
+ * ARC-09-C245 — a reload that keeps the session where it was.
+ *
+ * `reload()` is `load()`, which puts the session on the store's default instance: right at startup, wrong in the
+ * middle of a session. The capabilities read reloaded without coming back, so the §2.0 pre-flight read that comes
+ * before every write undid `snow_core_instance_switch` with nothing said, and the write went to the default. Both
+ * reads that reload come through here. When the session's instance no longer loads, `changed` names where it was,
+ * where it is now and why, instead of the session moving in silence; a label that was not loaded before (the
+ * placeholder an unconfigured server holds) is no change.
+ */
+function reloadKeepingSession() {
+    const from = instanceManager.getCurrentName();
+    const wasLoaded = instanceManager.getEntry(from) !== undefined;
+    const report = instanceManager.reload();
+    if (report.loaded.includes(from)) {
+        instanceManager.switch(from);
+        return { report, changed: null };
+    }
+    if (!wasLoaded)
+        return { report, changed: null };
+    const refused = report.notLoaded.find((n) => n.label === from);
+    return {
+        report,
+        changed: {
+            from,
+            to: instanceManager.loadedCount() > 0 ? instanceManager.getCurrentName() : null,
+            reason: refused ? `${refused.code}: ${refused.message}` : 'no longer in the store',
+        },
+    };
+}
 export function currentCapabilities() {
     // ARC-07-C3 — RE-READ THE STORE FIRST. This is the call a session makes to confirm its state
     // after the user says "done" to a credential fix, and it reported the credentials this process
@@ -109,8 +139,10 @@ export function currentCapabilities() {
     //
     // The reload is cheap and already exists — `load()` is idempotent and the store is a small 0600
     // file — and `reloadInstances()` is not used here because that one also re-advertises the tool
-    // catalogue and notifies the client; this call only needs the credentials to be current.
-    instanceManager.reload();
+    // catalogue and notifies the client; this call only needs the credentials to be current. It
+    // keeps the session on its instance (ARC-09-C245), and says so when it cannot.
+    const { changed } = reloadKeepingSession();
+    const moved = changed ? { instanceChanged: changed } : {};
     const report = instanceManager.getReport();
     if (instanceManager.loadedCount() === 0) {
         return {
@@ -119,6 +151,7 @@ export function currentCapabilities() {
             remedy: '/snowarch setup-instance',
             storePath: report.path,
             configErrors: report.configErrors.map((e) => ({ code: e.code, message: e.message })),
+            ...moved,
         };
     }
     const rt = instanceManager.current();
@@ -139,6 +172,7 @@ export function currentCapabilities() {
             ? { code: report.configErrors[0].code, message: report.configErrors[0].message }
             : null,
         configWarnings: rt.warnings,
+        ...moved,
     };
 }
 /**
@@ -151,12 +185,9 @@ export function currentCapabilities() {
  */
 export function reloadInstances() {
     const before = advertisedCount;
-    const previousLabel = instanceManager.getCurrentName();
-    const report = instanceManager.reload();
     // Keep the caller where they were if that instance still exists; otherwise the store's
-    // own default, which `load()` has already applied.
-    if (report.loaded.includes(previousLabel))
-        instanceManager.switch(previousLabel);
+    // own default, which `load()` has already applied, and `changed` says so (ARC-09-C245).
+    const { report, changed } = reloadKeepingSession();
     const after = instanceManager.loadedCount() === 0
         ? CORE_TOOLS_UNCONFIGURED.length
         : fullCatalogueSize();
@@ -176,6 +207,7 @@ export function reloadInstances() {
         configWarnings: report.warnings,
         toolsAdvertised: after,
         listChangedSent,
+        ...(changed ? { instanceChanged: changed } : {}),
     };
 }
 /** Injected by the server to avoid a cycle: tools/index.ts imports this module. */

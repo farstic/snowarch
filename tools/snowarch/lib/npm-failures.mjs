@@ -9,9 +9,16 @@
 // The network cases lean on ARC-03-S05's shared vocabulary where the SUBJECT is the same, and
 // diverge where it is not: npm reaches the registry, not github.com, and its CA setting is its own.
 import { NOTFOUND } from 'node:dns';
-import * as SENTENCE from './net-sentences.mjs';
+import { MB, megabytes } from './size.mjs';
 
 export const REGISTRY = 'registry.npmjs.org';
+
+/**
+ * ARC-09-C260 — what `npm ci --omit=dev --ignore-scripts` leaves in node_modules (B04.mjs installs exactly that), summed file content: 16.04 MB
+ * in CI's "footprint (production install)" job, run 41123130560, job 124294608261 ("node_modules: 15.3 MB … 3588 files", before the gate
+ * counted in 10^6-byte megabytes). The cache npm fills while it fetches is not counted here, and the sentence says only that it needs room.
+ */
+export const NODE_MODULES = 16 * MB;
 
 export const NPM_SENTENCE = Object.freeze({
   dns: `cannot reach ${REGISTRY} (DNS) — check your network or proxy `
@@ -22,7 +29,7 @@ export const NPM_SENTENCE = Object.freeze({
     + 'git checkout -- package-lock.json, then re-run',
   eacces: 'permission denied under node_modules — remove it (rm -rf node_modules) and re-run; '
     + 'never use sudo',
-  disk: SENTENCE.noDiskSpace,
+  disk: `insufficient disk space: the dependencies take about ${megabytes(NODE_MODULES)} MB in node_modules, and npm's cache needs room too`,
   missing: 'npm is not on PATH — install Node.js 20+ (which bundles npm) and re-run',
 });
 

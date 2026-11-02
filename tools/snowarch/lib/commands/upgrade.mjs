@@ -23,31 +23,32 @@
  *   hook reads it. A banner that could fetch would be a banner that could hang a session start.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 
 import { CACHE_FILE } from '../doctor-cache.mjs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { localDir, storePath } from '../local-paths.mjs';
 
 import { EXIT_FAIL, EXIT_OK, EXIT_PREREQ, EXIT_USAGE } from '../exit.mjs';
 import { branchState, describe, git, isShallow, versionTag } from '../git.mjs';
 import { askOnce, isYes } from '../ask.mjs';
-import { childEnv, NO_PROMPT_ENV } from '../spawn-env.mjs';
+import { childEnv, ENGLISH_ENV, NO_PROMPT_ENV } from '../spawn-env.mjs';
 import { loadConfig, root as defaultRoot, version as readVersion } from '../config.mjs';
 import { loadState, notHereReason, recordedHere } from '../state.mjs';
 // ARC-08-C29 — the runner's own step list, so the plan and the run are one computation.
 import { STEPS, outputMissingOf } from '../steps/index.mjs';
 import { checkGit, checkNode, makeExec } from '../steps/B00.mjs';
 import { nodeInfo, stepContext } from '../bootstrap.mjs';
-import { engineChecks } from '../doctor/checks/index.mjs';
 import { nonOkLines } from '../doctor/panel.mjs';
 import { formatVersion, meetsFloor } from '../versions.mjs';
 import { writeUpgradeCheck } from '../upgrade-check.mjs';
 import { manifestSays, refreshManifest, refreshWithUpgrade } from '../licence/fetch.mjs';
-import { DISTRIBUTION_FROM, MANIFESTS_FROM, archiveDiffers, checkTree, signedRelease, writeManifestCache }
+import { DISTRIBUTION_FROM, MANIFESTS_FROM, archiveDiffers, checkTree, distributedRelease, signedRelease, writeManifestCache }
   from '../licence/manifest.mjs';
 import { hashFor, INPUTS, STEP_IDS } from '../inputs.mjs';
+import { MODE, effectiveDocsMode } from '../docs/sync.mjs';
 
 /**
  * What U7 says about a doctor report — the tally AND the checks it counted, as one list.
@@ -108,6 +109,9 @@ function readCacheThisRun(root, { read = readFileSync, notBefore = null } = {}) 
  *
  * Returns `null` on any unreadable or shapeless cache: a caller that prints nothing is honest, and
  * one that falls back to the masked line prints `<label>` as though it were the instance's name.
+ *
+ * `modeLine` is in REPORT_CACHE_KEYS (`doctor-cache.mjs`), the keys the doctor's own cache promises
+ * (ARC-09-C200), so a rename is a change to that list rather than a Mode line that goes quiet here.
  */
 export function readCachedModeLine(root, { read = readFileSync, notBefore = null } = {}) {
   const line = readCacheThisRun(root, { read, notBefore })?.modeLine;
@@ -115,36 +119,33 @@ export function readCachedModeLine(root, { read = readFileSync, notBefore = null
 }
 
 /**
- * The non-ok checks the doctor cached for THIS MACHINE, titled, or `null` (ARC-09-C56).
+ * The checks U7 prints: the TARGET doctor's, as its report gives them, with the unmasked words this
+ * machine's cache holds for them where the two agree (ARC-09-C200).
  *
- * The cache stores `{id, status, detail, remedy?}` and DROPS `title`, so the title is resolved by
- * id from the registry that owns it. A copy of the titles kept beside the registry would be the
- * second copy of a sentence this repository keeps removing.
+ * `finish()` runs in the process that started the upgrade, so this module is the RUNNING release's,
+ * while the doctor U7 spawned is the target's. C56 read these lines from the cache and titled them
+ * from this release's registry, reasoning that an id the registry cannot name is a RETIRED check,
+ * because ids are never reused. That holds inside one release and not across this boundary: a check
+ * the target added printed untitled, and one it retitled printed this release's title. So the report
+ * decides which checks are printed, with which title and which status, and the cache's path and keys
+ * decide nothing about that.
  *
- * There IS a titled copy in the cache — `payload.report` mirrors the whole stored report — but it
- * is not in `COMPATIBILITY_KEYS`, which pins `checks` and not `report`. Reading the mirror would
- * build a user-facing line on a key nothing promises to keep.
- *
- * An id the registry cannot name is left WITHOUT a title, and `nonOkLines` is what omits it from
- * the line — the `?? null` below is a normalisation, not the fallback, and degrading it proves
- * nothing because `undefined` is as falsy as `null` at the template that reads it. `registry.mjs`
- * refuses id reuse ("ids are never reused"), so an unresolvable id can only ever mean a RETIRED
- * check — never the wrong title — and `SV-99 WARN: <detail>` is a true line where `undefined` is
- * a broken one.
+ * The cache is still read, for the one thing the report cannot give: the user's own words. `--json`
+ * is masked at its boundary, and a remedy of `./snowarch instance test <label>` fails when pasted
+ * (C56). An entry takes its `detail` and `remedy` from the cache only when the cache is this run's
+ * (the caller's binding), the cached entry has the same id and the same status, and the field is a
+ * string. Anything else keeps the report's masked text, which is vague but true, so a moved cache or
+ * a renamed key degrades to that and never to a wrong line.
  */
-export function readCachedChecks(root, { read = readFileSync, notBefore = null,
-  titles = checkTitles } = {}) {
-  const checks = readCacheThisRun(root, { read, notBefore })?.checks;
-  if (!Array.isArray(checks) || checks.length === 0) return null;
-  const byId = titles();
-  return checks.map((c) => ({ ...c, title: byId.get(c.id) ?? null }));
-}
-
-/** `id → title`, from the registry that defines them. Built once; the registry is static. */
-let TITLES = null;
-function checkTitles() {
-  if (TITLES === null) TITLES = new Map(engineChecks().map((c) => [c.id, c.title]));
-  return TITLES;
+function checksForU7(report, cache) {
+  const words = new Map((Array.isArray(cache?.checks) ? cache.checks : []).map((c) => [c?.id, c]));
+  return (Array.isArray(report?.checks) ? report.checks : []).map((check) => {
+    const own = words.get(check.id);
+    if (!own || own.status !== check.status) return check;
+    return { ...check,
+      ...(typeof own.detail === 'string' ? { detail: own.detail } : {}),
+      ...(typeof own.remedy === 'string' ? { remedy: own.remedy } : {}) };
+  });
 }
 
 /** `--check` found a newer release. A code, so a script can ask without parsing prose. */
@@ -178,6 +179,13 @@ export const NOTHING_CHANGED = 'upgrade: nothing changed';
 export const UNTRACKED_REASON =
   'git refuses to overwrite an untracked file the target tracks, even with identical content';
 
+/**
+ * ARC-09-C197 — why a file under a directory the target covers stops an upgrade, said beside U4's refusal (the
+ * architect's words, 2026-10-24).
+ */
+export const EXTRAS_REASON = 'after the upgrade those folders must hold exactly what the release signed, so a file '
+  + 'it does not ship would stop the upgrade after the move; keep your own files outside them';
+
 /** A NUL-separated list from git (`-z`), each path as git wrote it: no quoting, nothing trimmed. */
 export const splitZ = (text) => String(text ?? '').split('\0').filter(Boolean);
 
@@ -198,6 +206,25 @@ export function untrackedBlockers(untracked, tracked, { ignoreCase = false } = {
 export const namePaths = (paths, max = 10) => (paths.length <= max
   ? paths.join(', ')
   : `${paths.slice(0, max).join(', ')} and ${paths.length - max} more`);
+
+/**
+ * ARC-09-C197 — the files U5's tree check would call extra, named at U4 before anything moves: what checkTree calls
+ * extra against the target's manifest now, less what the move deletes. U1 has refused a modified tracked file, so the
+ * move deletes a file HEAD tracks and the target does not, overwrites an ignored one the target tracks, and leaves the
+ * rest of what HEAD does not track where it is (measured on git 2.39.5, for the checkout and the branch's
+ * fast-forward alike). One function decides at U4 and at U5, so the two cannot disagree about a file.
+ */
+export function extrasAfterMove(root, manifest, headTracked, { check = checkTree } = {}) {
+  const tracked = new Set(headTracked);
+  return check(root, manifest).modified.filter((d) => d.why === 'extra' && !tracked.has(d.path)).map((d) => d.path);
+}
+
+/** ARC-09-C197 — U4's refusal for those files, in C120's shape (the architect's words, 2026-10-24). */
+export function extrasRefusal(extras, target) {
+  const one = extras.length === 1;
+  return `upgrade: ${extras.length} file${one ? ' is' : 's are'} in folders ${target} manages but not in its signed `
+    + `file list: ${namePaths(extras)} — move ${one ? 'it' : 'them'} out of those folders; nothing was changed`;
+}
 
 /**
  * git's own reason: its first line, and the next one when the first ends with a colon, because git's refusals put
@@ -243,11 +270,77 @@ export function originLine(url, repo, cli) {
   const at = githubRepoOf(url);
   if (!at || typeof repo !== 'string' || repo === '') return null;
   if (at.toLowerCase() === repo.toLowerCase()) return null;
-  // An http(s) URL may carry a token as its user, with or without a password; an ssh user is a login name, kept.
-  const shown = String(url).trim().replace(/^(https?:\/\/)[^@/]+@/i, '$1');
+  const shown = shownUrl(url);
   const home = `https://github.com/${repo}.git`;
   return `upgrade: origin is ${shown}, and releases are published at ${home} — git remote set-url origin ${home}, `
     + `then run ${cli} upgrade again`;
+}
+
+/** An origin URL as it is printed: an http(s) URL may carry a token as its user, with or without a password, and that is never shown; an ssh user is a login name, kept. */
+const shownUrl = (url) => String(url ?? '').trim().replace(/^(https?:\/\/)[^@/]+@/i, '$1');
+
+/**
+ * ARC-09-C262 — `originLine` for an install that holds release tags from DISTRIBUTION_FROM on, as the lines to print: the two
+ * commands, each a line of its own (Windows PowerShell 5.1 has no `&&`), with every such tag named. Such tags came from the
+ * origin the install was cloned from, and the staged distribution shares no commit with that repository for any of them, so git
+ * refuses to replace them at U2 and the upgrade never forces a tag: the reader removes them first. `tags` is what
+ * `distributedTagsHere` answers, offline. An install that holds none gets today's single line, and an origin `originLine` is
+ * silent for stays silent.
+ */
+export function originLines(url, repo, cli, tags = []) {
+  const line = originLine(url, repo, cli);
+  if (line === null) return [];
+  if (tags.length === 0) return [line];
+  const shown = shownUrl(url);
+  const home = `https://github.com/${repo}.git`;
+  return [
+    `upgrade: origin is ${shown}, and releases are published at ${home}; this clone's release tags from ${DISTRIBUTION_FROM} on `
+      + `(${tags.join(', ')}) came from ${shown}, they name other commits than the published ones, and git will not replace a `
+      + 'tag it has — run these two commands:',
+    `  git remote set-url origin ${home}`,
+    `  git tag -d ${tags.join(' ')}`,
+    `then run ${cli} upgrade again`,
+  ];
+}
+
+/**
+ * ARC-09-C262 — the final tags from DISTRIBUTION_FROM on that this install holds, oldest first: the tags a clone made from the
+ * engineering repository holds at commits the distribution does not share, so the ones git would refuse to replace. By
+ * construction, not by a network call: every final from 2.2.1 on is staged there as a commit of its own. A release candidate is
+ * never published at the distribution, and a tag before DISTRIBUTION_FROM never was, so neither is named. A tag the install had
+ * already replaced is named too, which does no harm: the next fetch brings it back.
+ */
+export function distributedTagsHere(root, { opts = {} } = {}) {
+  return releaseTags(root, { pre: false, opts }).map((t) => t.tag).filter(distributedRelease).reverse();
+}
+
+/**
+ * ARC-09-C262 — the tags git refused to update at U2, from its own lines (`! [rejected]  v2.2.1 -> v2.2.1  (would clobber
+ * existing tag)`), in semver order where they are releases: git's own order is by name, which puts v2.2.10 before v2.2.2. The
+ * fetch runs in git's English (ENGLISH_ENV), so the shape is the same in every locale.
+ */
+export function clobberedTags(stderr = '') {
+  const names = [...String(stderr).matchAll(/^\s*! \[rejected\]\s+(\S+)\s+->\s+\S+\s+\(would clobber existing tag\)\s*$/gm)].map((m) => m[1]);
+  const releases = sortTags(names).reverse().map((t) => t.tag);
+  return [...releases, ...names.filter((n) => !releases.includes(n))];
+}
+
+/**
+ * ARC-09-C262 — what U2 says when git refused to replace tags: why, and the one command that removes them, so the next fetch brings
+ * the published ones. Never forced here: a tag a remote moved is U4's to judge against the signed manifest, not U2's to replace.
+ * "Came from another repository" is claimed only when origin IS where releases are published, because then the tags here can only
+ * have come from somewhere else; for any other origin the line says what git said. `fail` is the failure line, `steps` follow it.
+ */
+export function clobberLines(tags, { url, repo, cli }) {
+  const shown = shownUrl(url);
+  const at = shown === '' ? 'origin' : `origin (${shown})`;
+  const published = typeof repo === 'string' && repo !== '' && githubRepoOf(url)?.toLowerCase() === repo.toLowerCase();
+  const fail = published
+    ? `upgrade: these tags came from another repository: ${tags.join(', ')} — this clone holds them at other commits than ${at} does, `
+      + 'and git will not replace a tag it has; this upgrade never forces one; nothing was changed'
+    : `upgrade: git will not replace tags this clone already has: ${tags.join(', ')} — ${at} holds them at other commits; `
+      + 'this upgrade never forces one; nothing was changed';
+  return { fail, steps: [`  git tag -d ${tags.join(' ')}`, `then run ${cli} upgrade again`] };
 }
 
 /**
@@ -433,7 +526,8 @@ export function planContext({ root, config, ctx = {}, state = null }) {
     ...stepContext({ root, config, env: ctx.env ?? process.env, node: ctx.node ?? nodeInfo(),
       flags: { yes: true }, state, licence: ctx.licence }),
     mode: state?.mode ?? ctx.mode ?? 'design',
-    docs: state?.docs?.mode ?? ctx.docs ?? 'sparse',
+    // ARC-09-C244 — the recorded mode as effectiveDocsMode reads it: an unmarked sparse plans B02 for the whole corpus.
+    docs: state?.docs?.mode ? effectiveDocsMode(state.docs) : (ctx.docs ?? MODE.full),
   };
 }
 
@@ -548,10 +642,11 @@ export function rerunAtTag(root, tag, { ctx, state, run = spawnSync, keepWorktre
  * vanishing from the line.
  */
 export function planSteps(root, tag, { ctx, state, opts = {}, run = spawnSync, manifestWritten = false,
-  warnIsDone = false } = {}) {
+  warnIsDone = false, keepWorktree = null } = {}) {
   const byFile = new Map(stepsThatWillRun(root, tag, { ctx, opts })
     .map((s) => [s.step, s]));
-  const decided = rerunAtTag(root, tag, { ctx, state, run, manifestWritten, warnIsDone });
+  // ARC-09-C241 — a worktree of the tag the caller already made is planned in, and left for the caller to remove.
+  const decided = rerunAtTag(root, tag, { ctx, state, run, manifestWritten, warnIsDone, keepWorktree });
 
   // No worktree, no runner comparison: fall back to the file diff and SAY it is an estimate.
   if (decided === null) {
@@ -567,6 +662,161 @@ export function planSteps(root, tag, { ctx, state, opts = {}, run = spawnSync, m
       why,
     }));
   return { steps, estimate: false };
+}
+
+/** ARC-09-C195 — how long U4 waits for the target's own plan before planning with this release's tables. */
+export const PLAN_TIMEOUT_MS = 30_000;
+
+/** ARC-09-C195 — the helper U4 runs in a child to ask the target, shipped beside this release's modules. */
+export const PLAN_HELPER = fileURLToPath(new URL('../plan-at-target.mjs', import.meta.url));
+
+/** Why a target from before signed manifests is not asked: its files were not checked, and its code would run. */
+const UNSIGNED_REASON = `the target is from before ${MANIFESTS_FROM}, which signed no manifest, so its own runner `
+  + 'is not asked';
+
+/** The answer `planSteps` gives, as the helper prints it: the steps, each with its words, and the estimate flag. */
+function isPlan(p) {
+  return Boolean(p) && Array.isArray(p.steps) && typeof p.estimate === 'boolean'
+    && p.steps.every((s) => Boolean(s) && typeof s.step === 'string' && typeof s.title === 'string'
+      && typeof s.why === 'string' && Array.isArray(s.files) && s.files.every((f) => typeof f === 'string'));
+}
+
+/**
+ * ARC-09-C195 — U4's plan from the TARGET's own runner: `{ plan }`, or the `{ reason }` it could not be had.
+ *
+ * The plan is the runner's decision taken early (ARC-08-C29), and U4 runs in the installed release's process, so the
+ * STEPS, INPUTS and hashFor it decided with were the installed release's: a step whose inputs the target changed was
+ * missing from the plan and present in the run (2.2.4's B07 against 2.2.5's "hooks written"). So this makes a
+ * worktree of the tag and runs `PLAN_HELPER` in a child, which calls the target's own `planSteps` and prints its
+ * answer on stdout, the only channel read. Stderr is read for the reason only, one line of it.
+ *
+ * The child is the target's code running before the user says Y, so the caller asks only once the tag's files have
+ * passed the signed-manifest check, and the child gets `PLAN_TIMEOUT_MS`: no answer in time is a reason like any
+ * failure. A child the timeout stops never reaches the `finally` that removes the worktree its planSteps made, so a
+ * worktree registered while it ran is removed here too, and the checkout is left as it was found. The first entry
+ * `git worktree list` gives is the main worktree, which is never one of those.
+ *
+ * ARC-09-C241 — `worktree` is one the caller made of the tag: the target is asked in it, and it is left for the caller,
+ * which plans its fallback there. Without one, this makes and removes its own.
+ */
+export function targetPlan(root, tag, { run = spawnSync, env = process.env, state = null,
+  timeoutMs = PLAN_TIMEOUT_MS, worktree = null } = {}) {
+  const git = (args) => run('git', args, { cwd: root, encoding: 'utf8', stdio: 'pipe' });
+  const registered = () => {
+    const listed = git(['worktree', 'list', '--porcelain']);
+    if (listed?.status !== 0) return null;
+    return String(listed.stdout ?? '').split('\n').filter((l) => l.startsWith('worktree '))
+      .map((l) => l.slice('worktree '.length)).slice(1);
+  };
+  const before = registered();
+  const own = worktree === null ? addTagWorktree(root, tag, run) : null;
+  const at = worktree ?? own?.at ?? null;
+  const why = (detail) => ({ reason: `the target's own plan could not be read: ${detail}` });
+  try {
+    if (at === null) return why('the tag could not be checked out to ask it');
+    const r = run(process.execPath, [PLAN_HELPER, at, root, tag], { cwd: root, encoding: 'utf8',
+      env: childEnv(root, env), input: JSON.stringify({ manifestWritten: true, state }), timeout: timeoutMs,
+      stdio: ['pipe', 'pipe', 'pipe'] });
+    // Stopped by the timeout: spawnSync then reports an error AND the signal it stopped the child with. A child that
+    // dies of a signal on its own carries no error, and one that never started carries no signal. By that pair, not
+    // by the error's code, which is spelled like a code the contract owns (tests/contract/no-literals.test.mjs).
+    if (r?.error && r?.signal) return why(`it did not answer within ${timeoutMs / 1000} s`);
+    if (r?.status !== 0) {
+      const line = String(r?.stderr ?? '').split('\n').map((l) => l.trim()).find(Boolean);
+      return why(line ? line.slice(0, 200) : `it exited ${r?.status ?? 'abnormally'}`);
+    }
+    let plan;
+    try { plan = JSON.parse(r.stdout); } catch { return why('its answer was not JSON'); }
+    return isPlan(plan) ? { plan } : why('its answer had an unexpected shape');
+  } finally {
+    if (own) removeTagWorktree(root, own, run);
+    if (before !== null) {
+      for (const left of registered() ?? []) if (!before.includes(left)) git(['worktree', 'remove', '--force', left]);
+    }
+  }
+}
+
+/** ARC-09-C241 — a worktree of the tag in a temp directory of its own, or null when git cannot make it. */
+function addTagWorktree(root, tag, run) {
+  const scratch = mkdtempSync(join(tmpdir(), 'snowarch-target-'));
+  const at = join(scratch, 'at-tag');
+  if (run('git', ['worktree', 'add', '--detach', '--quiet', at, tag],
+    { cwd: root, encoding: 'utf8', stdio: 'pipe' })?.status === 0) return { at, scratch };
+  rmSync(scratch, { recursive: true, force: true });
+  return null;
+}
+
+/** ARC-09-C241 — the worktree, and the temp directory that held it, both gone. */
+function removeTagWorktree(root, { at, scratch }, run) {
+  run('git', ['worktree', 'remove', '--force', at], { cwd: root, encoding: 'utf8', stdio: 'pipe' });
+  rmSync(scratch, { recursive: true, force: true });
+}
+
+/** The same directory, by its real path: git records a temp directory as macOS's /private/var, node as /var. */
+function samePath(a, b) {
+  const real = (p) => { try { return realpathSync.native(p); } catch { return null; } };
+  const ra = real(a);
+  return ra !== null && ra === real(b);
+}
+
+/**
+ * ARC-09-C241 — the shared worktree back to what the tag holds, before this release plans in it: the target's code ran
+ * there and may have changed it. It is our own scratch checkout, so it is reset in place. `.local`, the link to the
+ * checkout's own state that rerunAtTag makes, is left out of both the check and the clean. False when it cannot be
+ * made clean, and the fallback then makes a worktree of its own.
+ *
+ * reset --hard and clean -fd are destructive, and `git -C ""` runs in the current directory, so nothing runs in `at`
+ * unless it is ours beyond doubt: a non-empty absolute path that exists, one of this repository's worktrees but not its
+ * main one, at the tag's commit. Anything else is refused, and the fallback makes a fresh worktree.
+ */
+function asTagged(root, tag, at, run) {
+  if (typeof at !== 'string' || at === '' || !isAbsolute(at) || !existsSync(at)) return false;
+  const git = (cwd, args) => run('git', args, { cwd, encoding: 'utf8', stdio: 'pipe' });
+  const listed = git(root, ['worktree', 'list', '--porcelain']);
+  if (listed?.status !== 0) return false;
+  const [main, ...linked] = String(listed.stdout ?? '').split('\n').filter((l) => l.startsWith('worktree '))
+    .map((l) => l.slice('worktree '.length));
+  if (main === undefined || samePath(main, at) || !linked.some((p) => samePath(p, at))) return false;
+  const head = git(at, ['rev-parse', 'HEAD']);
+  const tagged = git(root, ['rev-parse', `${tag}^{commit}`]);
+  if (head?.status !== 0 || tagged?.status !== 0
+    || String(head.stdout ?? '').trim() !== String(tagged.stdout ?? '').trim()) return false;
+  const clean = () => {
+    const r = git(at, ['status', '--porcelain', '--', '.', ':(exclude).local']);
+    return r?.status === 0 ? String(r.stdout ?? '').trim() === '' : null;
+  };
+  const first = clean();
+  if (first !== false) return first === true;
+  git(at, ['reset', '--hard', '--quiet']);
+  git(at, ['clean', '-fdq', '-e', '.local']);
+  return clean() === true;
+}
+
+/**
+ * ARC-09-C195 — the plan U4 prints for a move: the target's own when it can be had, otherwise this release's
+ * computation with the reason beside it, as `installedBecause`, which `renderPlan` prints. `signed` is U4's
+ * signed-manifest check having passed: a target before signed manifests is not asked at all.
+ *
+ * ARC-09-C241 — ONE worktree of the tag: the target is asked in it, and when it cannot answer this release plans in it,
+ * once it is back to what the tag holds. Each worktree is a checkout of the whole tree, the slow part of U4 on Windows,
+ * and U4 used to make two, or three when it fell back.
+ */
+export function planForMove(root, target, { ctx, state, opts = {}, run = spawnSync, env = process.env,
+  signed = false, askTarget = targetPlan, ownPlan = planSteps, makeWorktree = addTagWorktree } = {}) {
+  if (!signed) {
+    return { ...ownPlan(root, target, { ctx, state, opts, run, manifestWritten: signed }),
+      installedBecause: UNSIGNED_REASON };
+  }
+  const shared = makeWorktree(root, target, run);
+  try {
+    const asked = askTarget(root, target, { run, env, state, worktree: shared?.at ?? null });
+    if (asked.plan) return { ...asked.plan, installedBecause: null };
+    const keepWorktree = shared && asTagged(root, target, shared.at, run) ? shared.at : null;
+    return { ...ownPlan(root, target, { ctx, state, opts, run, manifestWritten: signed, keepWorktree }),
+      installedBecause: asked.reason };
+  } finally {
+    if (shared) removeTagWorktree(root, shared, run);
+  }
 }
 
 /** What the store will do, said before it is done. */
@@ -640,7 +890,7 @@ const short = (sha) => (sha ? String(sha).slice(0, 7) : '—');
 
 /** The plan block, exactly as the story writes it. */
 export function renderPlan({ from, to, commits, date, tagInfo, floor, steps, store,
-  restart = null, estimate = false }) {
+  restart = null, estimate = false, installedBecause = null }) {
   const lines = [`Upgrade plan: ${from} → ${to}`
     + `${commits === null ? '' : ` (${commits} commit${commits === 1 ? '' : 's'}`
       + `${date ? `, ${date}` : ''})`}`];
@@ -663,6 +913,8 @@ export function renderPlan({ from, to, commits, date, tagInfo, floor, steps, sto
     lines.push('  (the list above is a file-change estimate: the tag could not be checked out to '
       + "compare the runner's own inputs)");
   }
+  // ARC-09-C195 — and when the runner that decided was this release's rather than the target's.
+  if (installedBecause) lines.push(`  (computed by the installed release — ${installedBecause})`);
   lines.push(`  ${store.line}`);
   lines.push('  credentials: untouched (.local/instances.json is never read or written by the upgrade)');
   if (restart) lines.push(`  after the upgrade: ${restart}`);
@@ -770,16 +1022,25 @@ export async function upgradeCommand({ flags = {}, positional = [], log, root = 
   const fetchArgs = ['fetch', '--tags', '--prune', ...(shallow ? ['--unshallow'] : []), remote];
   // ARC-09-C190 — with prompts off: a remote that wants a credential no helper holds fails now, with git's reason,
   // instead of waiting on a prompt until FETCH_TIMEOUT_MS. A helper's stored credential still applies.
-  const fetched = run('git', fetchArgs, { cwd: root, encoding: 'utf8', env: childEnv(root, { ...env, ...NO_PROMPT_ENV }),
+  // ARC-09-C262 — in git's English, so the classifier below reads the failure whatever the reader's locale.
+  const fetched = run('git', fetchArgs, { cwd: root, encoding: 'utf8', env: childEnv(root, { ...env, ...NO_PROMPT_ENV, ...ENGLISH_ENV }),
     timeout: FETCH_TIMEOUT_MS, stdio: 'pipe' });
   if (fetched.status !== 0) {
     const stderr = String(fetched.stderr ?? fetched.error?.message ?? '').trim();
     if (stderr) for (const line of stderr.split('\n')) log.step(line);
+    const originUrl = git(root, ['config', '--get', `remote.${remote}.url`], { ...opts, allowFail: true });
+    const launcher = spellings({ platform, env }).cli;
+    // ARC-09-C262 — git refused to replace tags the install holds: say which, why, and the command that removes them.
+    const clobbered = clobberedTags(stderr);
+    if (clobbered.length > 0) {
+      const { fail, steps } = clobberLines(clobbered, { url: originUrl, repo: config.repo, cli: launcher });
+      log.fail(fail);
+      for (const step of steps) log.step(step);
+      return EXIT_FAIL;
+    }
     const { line } = classifyGitFetchError(stderr, { remote });
     log.fail(line ?? 'upgrade: git could not fetch the release tags; nothing was changed');
-    const moved = originLine(git(root, ['config', '--get', `remote.${remote}.url`], { ...opts, allowFail: true }),
-      config.repo, spellings({ platform, env }).cli);
-    if (moved) log.step(moved);
+    for (const moved of originLines(originUrl, config.repo, launcher, distributedTagsHere(root, { opts }))) log.step(moved);
     return EXIT_FAIL;
   }
 
@@ -904,14 +1165,23 @@ export async function upgradeCommand({ flags = {}, positional = [], log, root = 
       // ARC-09-C185c — signed over another commit than the tag here: the tag came from somewhere else than the release.
       const local = git(root, ['rev-parse', `${target}^{commit}`], { ...opts, allowFail: true });
       if (fetched.outcome === 'fetched' && fetched.entry.doc.manifest.commit !== local) {
-        const moved = originLine(git(root, ['config', '--get', `remote.${remote}.url`], { ...opts, allowFail: true }),
-          config.repo, spellings({ platform, env }).cli);
-        if (moved) log.step(moved);
+        // ARC-09-C262 — and with the tags an install cloned from that other repository holds, which git would refuse to replace.
+        const moved = originLines(git(root, ['config', '--get', `remote.${remote}.url`], { ...opts, allowFail: true }),
+          config.repo, spellings({ platform, env }).cli, distributedTagsHere(root, { opts }));
+        for (const line of moved) log.step(line);
       }
       return EXIT_FAIL;
     }
     log.step(manifestSays(fetched));
     manifest = fetched;
+    // ARC-09-C197 — a file U5's check of the moved tree would call extra is named now, before anything moves.
+    const extras = extrasAfterMove(root, manifest.entry.doc.manifest,
+      splitZ(gitRaw(['ls-tree', '-r', '--name-only', '-z', 'HEAD'])));
+    if (extras.length > 0) {
+      log.fail(extrasRefusal(extras, target));
+      log.step(EXTRAS_REASON);
+      return EXIT_USAGE;
+    }
   } else {
     log.step(`${target} is from before ${MANIFESTS_FROM}, when releases began to carry a signed manifest: its files are not checked`);
   }
@@ -924,8 +1194,10 @@ export async function upgradeCommand({ flags = {}, positional = [], log, root = 
   // inputs, compare with the recorded state) and falls back to the file diff only when the tag
   // cannot be checked out — in which case the plan says so rather than printing the other answer
   // under the same heading.
-  const { steps, estimate } = planSteps(root, target, { ctx, state, opts,
-    manifestWritten: manifest !== null });
+  // ARC-09-C195 — and the runner asked is the TARGET's: once its files have passed the manifest check, its own
+  // planSteps answers through the helper, and this release's tables plan only when it cannot, which the plan says.
+  const { steps, estimate, installedBecause } = planForMove(root, target, { ctx, state, opts, env,
+    signed: manifest !== null });
   const store = storePlan(root, target, { opts, spell: spellings({ platform, env }) });
   const floor = floorCheck(tagInfo, { exec: probe });
   const commits = Number(git(root, ['rev-list', '--count', `HEAD..${target}`], { ...opts, allowFail: true }) ?? '');
@@ -934,6 +1206,7 @@ export async function upgradeCommand({ flags = {}, positional = [], log, root = 
   log.step(renderPlan({
     from: fromLabel, to: target,
     commits: Number.isFinite(commits) ? commits : null, date, tagInfo, floor, steps, store, estimate,
+    installedBecause,
     restart: 'restart claude (the MCP server binary changed) — or run /mcp → servicenow → reconnect',
   }));
 
@@ -1033,8 +1306,9 @@ export async function upgradeCommand({ flags = {}, positional = [], log, root = 
     }
   }
   // ARC-11-C7 — the tree is checked after U5 and before U6: what git checked out against what the owner signed, so a
-  // tree that differs (a file the checkout left, a filter, a covered directory with more in it) stops the upgrade
-  // before the bootstrap runs on it. The cache is not written yet, so git alone takes the tree back.
+  // tree that differs (a file the checkout did not write, a filter) stops the upgrade before the bootstrap runs on it.
+  // A covered directory with more in it is U4's to name since ARC-09-C197; this stays for what U4 cannot see. The
+  // cache is not written yet, so git alone takes the tree back.
   if (manifest) {
     const tree = checkTree(root, manifest.entry.doc.manifest);
     if (!tree.ok) {
@@ -1176,8 +1450,12 @@ export async function finish({ root, env, log, run, target, latest, remote, now,
   // answer and deliberately so: a masked LINE still names the check, its status and its remedy's
   // shape, so it degrades to vague-but-true. A masked Mode line degrades to false, because
   // `instance=<label>` reads as the instance's name. Silence costs a reader the check entirely.
-  const cachedChecks = wroteThisRun ? readCachedChecks(root, { notBefore: startedAt }) : null;
-  for (const line of doctorLines(report, cachedChecks)) log.step(line);
+  //
+  // ARC-09-C200 — WHICH checks, with which titles and statuses, is the report's to say; the cache
+  // lends only its words, entry by entry, where it agrees (`checksForU7`). The cache's path, keys and
+  // titles were the running release's idea of the target's.
+  const cache = wroteThisRun ? readCacheThisRun(root, { notBefore: startedAt }) : null;
+  for (const line of doctorLines(report, checksForU7(report, cache))) log.step(line);
 
   const cachedModeLine = wroteThisRun ? readCachedModeLine(root, { notBefore: startedAt }) : null;
   if (cachedModeLine) log.step(cachedModeLine);

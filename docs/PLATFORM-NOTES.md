@@ -565,6 +565,21 @@ the shape is observed behaviour.
 **Engine consequence:** `display_value: 'all'` on `snow_core_records_query` and `snow_core_record_read` passes this
 shape through unchanged. The stored `value` is the one any query, filter or write uses (ARC-09-C205).
 
+## PN-25 — A finished task SLA's stage is stored as `completed`, not `complete`
+
+**Applies to:** the `task_sla` table's `stage` field · observed on a maintainer's Brazil-family PDI, 2026-10-23
+**Behaviour:** the field's choice list holds `in_progress`, `achieved`, `breached`, `cancelled`, `paused` and
+`completed`; there is no `complete`. A finished SLA's stage is `completed`, the stage the corpus labels Completed.
+**Grounding:** the corpus prints the stages' labels
+(`markdown/it-service-management/service-level-management/sla-timer.md`) and Completed appearing as Achieved under the
+2010-compatibility property (`markdown/it-service-management/service-level-management/c_SLATimeline.md`), not the
+stored values; the values are observed behaviour.
+**Evidence:** one read-only `snow_core_records_query` (a GET of `sys_choice`,
+`name=task_sla^element=stage^language=en^inactive=false`, fields `label,value,sequence`, ordered by sequence) through a
+v2.2.4 distribution install, 2026-10-23: six rows, not cut — In progress `in_progress`, Achieved `achieved`, Breached
+`breached`, Cancelled `cancelled`, Paused `paused`, Completed `completed`; no row holds `complete` (ARC-09-C228).
+**Engine consequence:** the ITSM gateway's Part 5 anti-pattern, and its example, name `completed` (ARC-09-C228).
+
 ## Windows notes — this repository, not ServiceNow
 
 The notes above are ServiceNow behaviour. These are about the machine the engine runs on, and they
@@ -585,6 +600,12 @@ an install before the installer runs. `bootstrap.ps1` is 5.1-clean (no `??`, no 
 `·` in the shared sentences into mojibake before a line ran. For the same reason the launcher writes
 its JSON through .NET rather than `Set-Content -Encoding UTF8`, which on 5.1 means "UTF-8 *with* a
 BOM" and produces files `JSON.parse` refuses.
+
+**Every file `bootstrap.ps1` dot-sources needs the BOM too**, because 5.1 decodes each file on its own.
+`tools/snowarch/launcher/docs-recipe.ps1` had none. 5.1 read its em dash as `â€”`, took the last of those
+characters for a double quote and ended a string early, so `bootstrap.cmd --docs full` stopped at B02 with
+"The term 'Invoke-DocsRecipeFull' is not recognized" (ARC-09-C244, fixed in 2.2.5).
+A launcher-parity test checks the BOM of every file `bootstrap.ps1` dot-sources.
 
 **Line endings.** `.gitattributes` gives `*.ps1` and `*.cmd` `text eol=crlf`: the index keeps LF and
 every checkout converts. A lone LF in a `.cmd` is a batch file that stops at the first line.

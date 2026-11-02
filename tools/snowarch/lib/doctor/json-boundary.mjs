@@ -25,9 +25,40 @@
 import { realpathSync } from 'node:fs';
 
 import { INSTANCE_HOST } from '../doctor-cache.mjs';
+import { storePath } from '../local-paths.mjs';
+import { maskStemWords, storeHostValues, usableStems } from '../mask-values.mjs';
+
+// ARC-09-C227 — every host in a string, not only the first. A replace with the shared constant, which has no g
+// flag, masked one address and left a second instance's in the JSON a user pastes into an issue. This copy is
+// global, and the constant is not: the cache guard asks it with .test(), which a /g regex makes stateful.
+const INSTANCE_HOST_ALL = new RegExp(INSTANCE_HOST.source, `${INSTANCE_HOST.flags}g`);
+
+// ARC-09-C242 — words the doctor prints whole (`run node scripts/…`, Node.js, HTTPS_PROXY): a store stem that is one of
+// them is not masked here, where the report is the product's own text; a host is still masked whole. The finding
+// masker still masks them, where they may be a client's name. Stems that are never a name are left out for both
+// (mask-values.mjs PRODUCT_STEMS, moved from here).
+const DOCTOR_WORDS = new Set(['node', 'proxy']);
+
+// ARC-09-C242 — an address names the organisation in its domain, far more often than not. The redactor keeps a domain on purpose, for a
+// log that stays on the machine; what travels does not, and the server's username mask (`j***@clientco.com`) keeps it: on develop that
+// stood in the JSON unless the store's stem began it. The domain goes whole, always and whatever the store's stems are, and the local
+// part becomes what the server's mask leaves, its first character and `***`. A package (`@scope/name`, `name@1.2.3`) and a bare `a@b`
+// have no such shape: a domain has a dot and ends in letters.
+const ADDRESS = /\b([A-Za-z0-9])[A-Za-z0-9._%+*-]*@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}\b/g;
+
+/**
+ * ARC-09-C221 — the store's own hosts and stems, for maskForJson: the non-credential tier (mask-values.mjs), read
+ * with the server's precedence, `SNOW_STORE` first. A custom-domain instance, or a host written bare, is not
+ * INSTANCE_HOST's shape; by value, the boundary masks it anyway. No credential is read here.
+ */
+export function storeMaskValues(root, env = process.env) {
+  const { hosts, stems } = storeHostValues(env.SNOW_STORE || storePath(root));
+  return { hosts, stems };
+}
 
 export const LABEL_MASK = '<label>';
 export const HOST_MASK = '<host>';
+export const DOMAIN_MASK = '<domain>';
 export const HOME_MASK = '~';
 
 /**
@@ -141,13 +172,24 @@ export function labelsIn(report) {
  * exceptions are wrong for somebody. The collision is asserted in the test, so it is documented
  * behaviour rather than a discovery.
  */
-export function maskForJson(report, { labels = labelsIn(report), home = '' } = {}) {
+export function maskForJson(report, { labels = labelsIn(report), home = '', hosts = [], stems = [] } = {}) {
   const res = [...labels].sort((a, b) => b.length - a.length).map((l) => [wordRe(l), LABEL_MASK]);
   // This run's own home FIRST — it is the most specific, and it may match no pattern at all — then
   // the generic shapes, which also cover a report quoting a path that is somebody else's home.
   const homes = homeValues(home).map((h) => new RegExp(escapeRe(h), 'g'));
+  // ARC-09-C221 — the store's hosts whole, with or without a scheme, then their stems (`acmebankdev` included). A host
+  // holds no `_` (ARC-09-C242), so a bare host `snow` leaves the doctor's `snow_*` tool names as they are.
+  const storeHosts = [...hosts].sort((a, b) => b.length - a.length)
+    .map((h) => new RegExp(`(?:[a-z][a-z0-9+.-]*://)?(?<![\\w.-])${escapeRe(h)}(?![\\w-])`, 'gi'));
+  // ARC-09-C242 — a stem of four letters or more masks its whole word and a sibling instance's, and a word it begins at a
+  // token boundary, an uppercase letter or a digit (mask-values.mjs maskStemWords); a lowercase continuation is not a
+  // boundary, so `./snowarch` and `corpus` stay.
+  const jsonStems = usableStems(stems).filter((s) => s.length > 3 && !DOCTOR_WORDS.has(s.toLowerCase()));
   const maskString = (s) => {
-    let out = s.replace(INSTANCE_HOST, HOST_MASK);
+    let out = s.replace(ADDRESS, (m, first) => `${first}***@${DOMAIN_MASK}`);
+    out = out.replace(INSTANCE_HOST_ALL, HOST_MASK);
+    for (const re of storeHosts) out = out.replace(re, HOST_MASK);
+    out = maskStemWords(out, jsonStems, () => HOST_MASK);
     for (const re of homes) out = out.replace(re, HOME_MASK);
     out = out.replace(HOME_PATH, HOME_MASK);
     for (const [re, to] of res) out = out.replace(re, to);

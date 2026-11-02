@@ -18,6 +18,7 @@ import { CORPUS_TEXT } from './format.mjs';
 import { FILE, TEXT, ABSENT } from './inputs.mjs';
 import { INPUTS } from '../inputs.mjs';
 import { needSpell, spellings } from '../launcher-spelling.mjs';
+import { megabytes } from '../size.mjs';
 
 export const id = 'B02';
 export const title = 'docs';
@@ -100,7 +101,7 @@ export const run = async (ctx) => {
   // The size line is `docsStatus`'s measurement, not a second walk of the tree.
   const status = docsStatus({ root: ctx.root, verify: false, measure: true });
   ctx.line?.(`[docs] ${status.fileCount.toLocaleString('en-US')} files · `
-    + `${Math.round(status.sizeBytes / (1024 * 1024))} MB working tree`);
+    + `${megabytes(status.sizeBytes)} MB working tree`);
 
   const citations = verifyCitations({ root: ctx.root });
   ctx.line?.(`citations: checked: ${citations.checked} | dead: ${citations.dead.length}`);
@@ -110,12 +111,15 @@ export const run = async (ctx) => {
   const data = { mode: result.mode, pin: ctx.config.docs.pin.slice(0, 7),
     files: status.fileCount, bytes: status.sizeBytes,
     checked: citations.checked, dead: citations.dead.length };
-  ctx.state.docs = { mode: result.mode, pin: ctx.config.docs.pin };
+  // ARC-09-C244 — sparse is kept only when it is marked as asked for, and B02 runs sparse only when it was: the plan
+  // offers the whole corpus and skip, and `--docs sparse` or a recorded opt-in is the one way here.
+  ctx.state.docs = { mode: result.mode, pin: ctx.config.docs.pin,
+    ...(result.mode === MODE.sparse ? { optIn: true } : {}) };
 
   if (citations.dead.length > 0) {
     return { status: 'warn', data,
       detail: `${citations.dead.length} dead citation(s) — see ${spell.cli} docs verify` };
   }
   return { status: 'ok', data,
-    detail: `${result.mode}, ${result.areas.length} areas` };
+    detail: `${result.mode}, ${result.areaCount} areas` };
 };

@@ -36,7 +36,7 @@ MSG_CITATIONS='citations: not verified until Node 20+ is installed'
 
 . "$ROOT/tools/snowarch/launcher/docs-recipe.sh"
 
-MODE=design ; DOCS=sparse ; YES=0 ; RESET=0 ; SKIP_CLAUDE=0 ; NODE_ONLY=0
+MODE=design ; DOCS=full ; YES=0 ; RESET=0 ; SKIP_CLAUDE=0 ; NODE_ONLY=0
 ORIG=("$@")          # kept intact for the hand-over: Node parses its own flags
 
 say() { printf '%s\n' "$*" ; }
@@ -60,7 +60,7 @@ while [ $# -gt 0 ] ; do
     --yes) YES=1 ;; --reset) RESET=1 ;; --skip-claude-check) SKIP_CLAUDE=1 ;;
     --from|--instance-file) NODE_ONLY=1 ; shift ;;
     --from=*|--instance-file=*|--json) NODE_ONLY=1 ;;
-    --help|-h) say "usage: ./bootstrap.sh [--mode design|live] [--docs sparse|full|skip] [--yes] [--reset]" ; exit 0 ;;
+    --help|-h) say "usage: ./bootstrap.sh [--mode design|live] [--docs full|skip|sparse] [--yes] [--reset]" ; exit 0 ;;
   esac
   shift
 done
@@ -104,9 +104,14 @@ else
   ge "$CLAUDE_V" "$(floor claudeCode)" || die B00 "Claude Code $CLAUDE_V found, >= $(floor claudeCode) required" "$MSG_CLAUDE" 3
   say "ok B00 claudeCode: $CLAUDE_V"
 fi
+# ARC-09-C259: the floor is in bytes and decimal, the same number as DISK_SPARSE in B00.mjs and $DiskFloorBytes in bootstrap.ps1
+# (tests/size-unit.test.mjs reads all three). `df -Pk` counts 1024-byte blocks, so a block count times 1024 is the free bytes.
+DISK_FLOOR_BYTES=1000000000
+GB_BYTES=1000000000
 FREE_KB="$(df -Pk "$ROOT" | awk 'NR==2{print $4}')"
-[ "$FREE_KB" -ge 1048576 ] 2>/dev/null || die B00 "less than 1 GiB free" "free up space on $ROOT" 3
-say "ok B00 disk: $((FREE_KB/1048576)) GB free"
+case "$FREE_KB" in ''|*[!0-9]*) FREE_KB=0 ;; esac
+[ "$((FREE_KB * 1024))" -ge "$DISK_FLOOR_BYTES" ] || die B00 "less than 1 GB free" "free up space on $ROOT" 3
+say "ok B00 disk: $((FREE_KB * 1024 / GB_BYTES)) GB free"
 # `-h` is deliberately absent: with it, the pattern `HEAD` matches no head ref, `--exit-code`
 # returns 2, and git says nothing — so a probe that reads only stderr called that "reachable"
 # and one that reads only the exit code called it "unreachable". Both were reading a flag bug.
@@ -140,20 +145,20 @@ say "ok B00 node: note: Node.js not found — design-only only; live mode needs 
 step B00 preflight ok
 if [ "$YES" != 1 ] ; then
   DOCS_NOTE=''
-  # The area count belongs to a checkout that will happen; printing "skip (19 areas)" describes a
-  # corpus nobody is fetching.
-  [ "$DOCS" = skip ] || DOCS_NOTE=" ($(grep -c . "$ROOT/vendor/docs-areas.txt" 2>/dev/null || echo 0) areas)"
+  # ARC-09-C244 — a cited-area count belongs to sparse: the whole corpus has every area, and skip has none.
+  [ "$DOCS" != sparse ] || DOCS_NOTE=" ($(grep -c . "$ROOT/vendor/docs-areas.txt" 2>/dev/null || echo 0) areas)"
   say "Plan: Mode design-only (fixed — Node.js 20+ not found) · Docs $DOCS$DOCS_NOTE"
-  say "Enter = run · d = docs full · s = docs skip · q = quit"
+  say "Enter = run · s = docs skip · q = quit"
   read -r answer
-  case "$answer" in d|D) DOCS=full ;; s|S) DOCS=skip ;; q|Q) exit 0 ;; esac
+  case "$answer" in s|S) DOCS=skip ;; q|Q) exit 0 ;; esac
 fi
 
 write_state() {
   mkdir -p "$ROOT/.local" && chmod 700 "$ROOT/.local" 2>/dev/null
+  if [ "$DOCS" = sparse ] ; then OPT_IN=', "optIn": true' ; else OPT_IN='' ; fi   # ARC-09-C244: kept as asked
   cat > "$ROOT/.local/bootstrap-state.json" <<STATE
 { "version": 1, "product": "snowarch", "mode": "design-only",
-  "docs": { "mode": "$DOCS", "pin": "$(sed -n 's/.*"pin": *"\([0-9a-f]*\)".*/\1/p' "$ROOT/engine.config.json")" },
+  "docs": { "mode": "$DOCS", "pin": "$(sed -n 's/.*"pin": *"\([0-9a-f]*\)".*/\1/p' "$ROOT/engine.config.json")"$OPT_IN },
   "node": { "present": false, "version": null },
   "writer": "bash", "platform": "$PLAT",
   "registration": "project", "registrationReason": "default", "hooksDisabledByBootstrap": false,

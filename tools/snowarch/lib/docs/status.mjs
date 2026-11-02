@@ -10,11 +10,12 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { statePath } from '../local-paths.mjs';
 import { ALWAYS_DIRS, CORPUS_DIR, MODE, ROOT_FILES, readAreas } from './sync.mjs';
+import { SPARSE, modeOf, recordedMode, sparseOf } from './shape.mjs';
 import { verifyCitations } from './verify.mjs';
 import { needSpell, spellings } from '../text.mjs';
 import { restoreRemedy } from '../licence/manifest.mjs';
+import { megabytes } from '../size.mjs';
 
 /**
  * The doctor's E-12 line, owned here and imported by ARC-08 — never retyped.
@@ -40,15 +41,8 @@ export const E12_ABSENT = (mode, spell) =>
 /** The object's version. Additions are non-breaking; a removal or a changed meaning is not. */
 export const SCHEMA = 1;
 
-/**
- * The four shapes a checkout can be in.
- *
- * `full` is `MODE.full` rather than a second spelling of the word: "the whole corpus is on disk" is
- * the same claim whether it arrives as a requested mode or as an observed shape, and writing it
- * twice would be two definitions of one fact — and two literals for the ARC-05-S10 scan to judge,
- * where the allow-list already carries exactly one argued row for this homograph.
- */
-export const SPARSE = Object.freeze({ cone: 'cone', full: MODE.full, pattern: 'pattern', none: 'none' });
+// ARC-09-C239 — the mode and the shape live in shape.mjs, light enough for the citation hook; read from here as before.
+export { SPARSE, modeOf, recordedMode, sparseOf };
 
 const git = (args, cwd) => {
   try {
@@ -99,34 +93,26 @@ function branchOf(corpus) {
   return m ? m[1] : null;
 }
 
-/**
- * `cone` | `full` | `pattern` | `none`.
- *
- * `pattern` is the ADR-0008 shape — sparse checkout on, cone mode off, which is what git 2.34.1
- * silently produces from `set --cone` and which omits the corpus's root files. It is reported as
- * its own value rather than folded into `cone`, because the remedy differs.
- */
-function sparseOf(corpus) {
-  if (!existsSync(join(corpus, '.git'))) return SPARSE.none;
-  const on = git(['config', '--get', 'core.sparseCheckout'], corpus).out === 'true';
-  if (!on) return SPARSE.full;
-  return git(['config', '--get', 'core.sparseCheckoutCone'], corpus).out === 'true' ? SPARSE.cone : SPARSE.pattern;
-}
 
 /**
- * The recorded mode, and the checkout's shape, are two different questions.
- *
- * `mode` is what the operator ASKED for — ARC-06 writes it to `.local/bootstrap-state.json` — and
- * `sparse` is what is on disk. They can disagree (a state file saying `sparse` over a full
- * checkout), and reporting both is the point: the disagreement is the finding.
+ * ARC-09-C244 — how complete the checkout is against its own pinned tree: how many areas the tree has under
+ * `markdown/`, read from the clone's trees (no blob is fetched), and how many index entries are still
+ * skip-worktree, which a finished switch to the whole corpus leaves none of.
  */
-function recordedMode(root) {
-  const p = statePath(root);
-  if (!existsSync(p)) return null;
+function completenessOf(corpus) {
+  const tree = git(['ls-tree', '--name-only', 'HEAD', 'markdown/'], corpus);
+  const files = git(['ls-files', '-t'], corpus);
+  return {
+    areasInTree: tree.ok ? tree.out.split('\n').filter(Boolean).length : null,
+    skipWorktree: files.ok ? files.out.split('\n').filter((l) => l.startsWith('S ')).length : null,
+  };
+}
+
+/** ARC-09-C244 — the area directories under `markdown/`: every area for the whole corpus, the cited ones for a cone. */
+function areaDirs(corpus) {
   try {
-    const m = JSON.parse(readFileSync(p, 'utf8'))?.docs?.mode;
-    return (m === MODE.sparse || m === MODE.full || m === 'skip') ? m : null;
-  } catch { return null; }
+    return readdirSync(join(corpus, 'markdown'), { withFileTypes: true }).filter((e) => e.isDirectory()).length;
+  } catch { return 0; }
 }
 
 /** Files and bytes under the corpus, `.git` excluded. ~1 s over 35k files, so it is opt-in. */
@@ -222,7 +208,7 @@ export function configuredDocs({ root = process.cwd(), exec = execFileSync, time
  * "not asked" from "asked and empty" without knowing which caller it is. `measure` is opt-in for
  * the same reason: a 35k-file walk does not belong in a hook's budget.
  */
-export function docsStatus({ root = process.cwd(), verify = true, measure: doMeasure = verify } = {}) {
+export function docsStatus({ root = process.cwd(), verify = true, measure: doMeasure = verify, completeness = false } = {}) {
   const config = JSON.parse(readFileSync(join(root, 'engine.config.json'), 'utf8'));
   const { docs } = config;
   const corpus = join(root, CORPUS_DIR);
@@ -246,6 +232,9 @@ export function docsStatus({ root = process.cwd(), verify = true, measure: doMea
     // Only meaningful on Windows: elsewhere the setting does not exist and `false` would read as
     // "off", which is a different claim from "not applicable".
     longpaths: null,
+    // ARC-09-C244 — the area directories on disk; `null` with no corpus to count. `areasInTree` and `skipWorktree`
+    // are E-15's completeness, asked for with `completeness` (two git reads) and `null` when not asked.
+    areaCount: null, areasInTree: null, skipWorktree: null,
     schema: SCHEMA,
   };
   const link = gitlinkOf(root);
@@ -282,7 +271,9 @@ export function docsStatus({ root = process.cwd(), verify = true, measure: doMea
     // it rather than retyped here — `ROOT_FILES` is `checkCompleteness`'s list, and a second copy
     // would be a second thing to keep in step.
     rootMissing: [...ROOT_FILES, ...ALWAYS_DIRS].filter((f) => !existsSync(join(corpus, f))),
-    mode: base.mode ?? (sparse === SPARSE.full ? MODE.full : MODE.sparse),
+    areaCount: areaDirs(corpus),
+    ...(completeness ? completenessOf(corpus) : {}),
+    mode: modeOf(base.mode, sparse),
     longpaths: process.platform === 'win32'
       ? git(['config', '--get', 'core.longpaths'], corpus).out === 'true'
       : null,
@@ -294,7 +285,7 @@ export function docsStatus({ root = process.cwd(), verify = true, measure: doMea
 
 const short = (sha) => (sha ? sha.slice(0, 7) : '—');
 const commas = (n) => (n === null ? '—' : n.toLocaleString('en-US'));
-const mb = (b) => (b === null ? '—' : `${Math.round(b / 1_000_000)} MB`);
+const mb = (b) => (b === null ? '—' : `${megabytes(b)} MB`);
 
 /**
  * The human screen, and the exit code that goes with it.
@@ -313,7 +304,7 @@ export function formatStatus(s, spell = spellings(), { engineering = false } = {
   if (!s.present) {
     return {
       text: [
-        `docs corpus: MISSING — run ${spell.bootstrap} --docs sparse `
+        `docs corpus: MISSING — run ${spell.bootstrap} `
         + '(or node scripts/docs.mjs sync)',
         // The doctor's exact line, so `docs status` and the doctor cannot disagree about what an
         // absent corpus means or what to do about it.

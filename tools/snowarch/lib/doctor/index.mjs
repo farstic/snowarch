@@ -37,9 +37,10 @@ import { contractSha, root as configRoot, version as engineVersion } from '../co
 import { collectPrereqs } from './prereqs.mjs';
 import { buildReport } from './report-json.mjs';
 import { configuredDocs } from '../docs/status.mjs';
+import { effectiveDocsMode } from '../docs/sync.mjs';
 import { renderText, useColour } from './report-text.mjs';
 import { exitCodeFor, runChecks, selectSections } from './runner.mjs';
-import { maskForJson } from './json-boundary.mjs';
+import { maskForJson, storeMaskValues } from './json-boundary.mjs';
 import { readStoreSummaries } from '../../../../packages/snowarch/dist/store/label.js';
 
 /**
@@ -423,7 +424,7 @@ export async function fixCommand({ root, config, registry, options, env, home, n
     env,
     platform: process.platform,
     mode: state?.mode ?? null,
-    docsMode: state?.docs?.mode ?? 'sparse',
+    docsMode: effectiveDocsMode(state?.docs),   // ARC-09-C244
     registration: state?.registration ?? 'project',
     storePath: storePath(root),
   };
@@ -572,7 +573,7 @@ export async function doctorCommand({ flags = {}, log, out = process.stdout, env
     // A plan the user declined is a successful run of `--fix`: they asked what it would do, and
     // it told them. The findings are still on the screen and the next run still reports them.
     if (outcome.declined) {
-      if (flags.json) write(JSON.stringify(maskForJson(report, { home }), null, 2));
+      if (flags.json) write(JSON.stringify(maskForJson(report, { home, ...storeMaskValues(root) }), null, 2));
       if (log?.commit) log.commit();
       return EXIT_OK;
     }
@@ -601,7 +602,7 @@ export async function doctorCommand({ flags = {}, log, out = process.stdout, env
     // form that travels — an issue template asks a stranger to paste it — so instance labels and
     // hosts leave as `<label>` / `<host>`. The text path below, the banner and the cache keep the
     // user's own words; a machine consumer uses the report object, not this string.
-    write(JSON.stringify(maskForJson(cacheError ? { ...report, cacheError } : report, { home }), null, 2));
+    write(JSON.stringify(maskForJson(cacheError ? { ...report, cacheError } : report, { home, ...storeMaskValues(root) }), null, 2));
   } else {
     // ARC-07-W17 — the renderer is pure and takes the spelling; this command may read the shell.
     // `doctorCommand` has no `ctx` — it BUILDS one for the checks — so the platform and the command's

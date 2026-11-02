@@ -699,6 +699,11 @@ export async function runAdd(options, terminal, deps = {}) {
                 resolved = again.url;
             }
         }
+        else if (first.proposed) {
+            // ARC-09-C223 — under --yes nobody is asked, so the URL that will be stored is said: an invented
+            // URL is never taken in silence (the architect's ruling, for a bare word and a bare host alike).
+            io.write(`Using ${resolved}, proposed from what you entered.\n`);
+        }
         return { ok: true, url: resolved };
     };
     /**

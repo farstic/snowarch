@@ -14,6 +14,7 @@ import { EXIT_FAIL, EXIT_OK, EXIT_USAGE } from './exit.mjs';
 import { loadConfig, root as defaultRoot, version } from './config.mjs';
 import { checkLocation, checkMode } from './instance-file.mjs';
 import { DOCS, buildPlan, runPlanScreen } from './plan.mjs';
+import { MODE } from './docs/sync.mjs';
 import { LAST, STEPS, interrupt, runSteps, stepById } from './steps/index.mjs';
 import { RESET_MESSAGE, StateError, emptyState, loadState, resetState, saveState } from './state.mjs';
 import { needSpell, spellings } from './launcher-spelling.mjs';
@@ -247,7 +248,10 @@ export async function bootstrapCommand({ flags, log, root = defaultRoot, argv = 
   // back and every step's `runsWhen` is asked about it.
   const runState = ctx.state;          // the same object B00 recorded into, not a second empty one
   runState.mode = accepted.plan.mode;
-  runState.docs = { mode: accepted.plan.docs, pin: config.docs.pin };
+  // ARC-09-C244 — a sparse plan carries the marker that keeps it sparse (`effectiveDocsMode`): the screen offers
+  // the whole corpus and skip, so sparse can only have come from `--docs sparse` or a recorded opt-in.
+  runState.docs = { mode: accepted.plan.docs, pin: config.docs.pin,
+    ...(accepted.plan.docs === MODE.sparse ? { optIn: true } : {}) };
   runState.node = node;
   ctx.mode = accepted.plan.mode;
   ctx.docs = accepted.plan.docs;

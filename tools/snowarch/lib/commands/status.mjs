@@ -26,7 +26,7 @@ import { statePath } from '../local-paths.mjs';
 import { EXIT_FAIL, EXIT_OK, EXIT_PREREQ } from '../exit.mjs';
 import { BANNER } from '../text.mjs';
 import { resolveCheckout, runDoctor } from '../doctor/index.mjs';
-import { maskForJson } from '../doctor/json-boundary.mjs';
+import { maskForJson, storeMaskValues } from '../doctor/json-boundary.mjs';
 import { renderPanel } from '../doctor/panel.mjs';
 
 /**
@@ -44,8 +44,10 @@ export const USAGE = (where) => [
   '  The one-screen panel: mode, engine, docs, roster, capabilities, instances and the quick',
   '  doctor. `--json` prints the doctor report itself, exactly as `doctor --quick --json` does.',
   '',
-  '  Exit: 0 when no check failed, 1 when one did. A 1 is a finding about the checkout, not a',
-  '  failure to render — the panel is printed either way.',
+  '  Exit: 0 when no check failed, 1 when one did: the panel is printed either way, so a 1 is not a',
+  '  failure to render. It is also 1 when the doctor itself failed; then the one line printed is a',
+  '  Mode line that says doctor unavailable. Any other 1 is the command itself failing, and what it',
+  '  printed says why.',
 ].join('\n');
 
 /**
@@ -148,7 +150,7 @@ export async function statusCommand({ flags = {}, log, out = process.stdout, env
   }
 
   if (flags.json) {
-    write(JSON.stringify(maskForJson(report, { home }), null, 2));
+    write(JSON.stringify(maskForJson(report, { home, ...storeMaskValues(root, env) }), null, 2));
   } else {
     // ARC-07-W17 — the panel is PURE (its import graph is walked and must reach no environment), so
     // the launcher is supplied here, where reading the shell is allowed.

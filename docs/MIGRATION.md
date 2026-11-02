@@ -28,7 +28,7 @@ macOS / Linux:
 
 ```sh
 mv snowarch snowarch-2.2.0
-git -c advice.detachedHead=false clone --branch v2.2.4 https://github.com/farstic/snowarch.git snowarch
+git -c advice.detachedHead=false clone --branch v2.2.5 https://github.com/farstic/snowarch.git snowarch
 cd snowarch
 mkdir -p .local .claude
 cp -p ../snowarch-2.2.0/.local/licence.json ../snowarch-2.2.0/.local/instances.json .local/
@@ -43,7 +43,7 @@ Windows PowerShell:
 
 ```powershell
 Rename-Item snowarch snowarch-2.2.0
-git -c advice.detachedHead=false clone --branch v2.2.4 https://github.com/farstic/snowarch.git snowarch
+git -c advice.detachedHead=false clone --branch v2.2.5 https://github.com/farstic/snowarch.git snowarch
 cd snowarch
 New-Item -ItemType Directory -Force .local, .claude | Out-Null
 Copy-Item ..\snowarch-2.2.0\.local\licence.json, ..\snowarch-2.2.0\.local\instances.json .local\
@@ -57,7 +57,8 @@ Copy-Item -Recurse ..\snowarch-2.2.0\clients .
 The licence, the instance store and the audit trail of instance writes (`audit.jsonl`, and the three older files it
 rotates into) carry over, and the new install continues the trail. The carried `.claude/settings.local.json` keeps your
 permissions, environment and hooks, SessionStart hooks of your own included; the bootstrap rewrites only its own
-SessionStart hook, which follows the new folder. An
+hooks, the session banner, the citation check, the note on a Read of a page that is not there and the correction after a
+reply that cites one, which follow the new folder. An
 install that ran design-only (no instance) leaves out `--mode live`. With the carried store, `--mode live` keeps its
 default instance and does not run the wizard. Other folders of your own that git ignores (`deliverables/`, `memory/`,
 `reports/`) are copied the same way if you have them. Do not copy the rest of `.local/`: it describes the old folder,
@@ -71,12 +72,15 @@ installed from: replace it as above.
 ## An install made with `clone --branch` of a 2.2.1 release candidate, or later
 
 Such an install checks a release by the rule its own signed manifest carries, so it moves with the upgrade, from its
-folder.
+folder. It holds the release tags from v2.2.1 on at the commits of the address it was cloned from, and those are not the
+commits published at farstic/snowarch. Git will not replace a tag it has, and the upgrade never forces one, so remove
+those tags first; the upgrade names the tags your install holds and prints these commands itself.
 
 macOS / Linux:
 
 ```sh
 git remote set-url origin https://github.com/farstic/snowarch.git
+git tag -d v2.2.1 v2.2.2 v2.2.3 v2.2.4
 ./snowarch upgrade
 ```
 
@@ -84,21 +88,26 @@ Windows PowerShell:
 
 ```powershell
 git remote set-url origin https://github.com/farstic/snowarch.git
+git tag -d v2.2.1 v2.2.2 v2.2.3 v2.2.4
 .\snowarch.cmd upgrade
 ```
 
-The release tags your install already has stay where they are, so the upgrade's plan names the
-version you are on as before, for example `v2.2.1-rc.1 → v2.2.1`, and goes ahead as usual.
-Your `.local/`, your instances and your engagement folders stay where they are.
+The tags you remove come back at the published commits with the upgrade's fetch. The release candidate tag your install
+is on stays where it is, so the upgrade's plan names the version you are on as before, for example
+`v2.2.1-rc.1 → v2.2.1`, and goes ahead as usual. Your `.local/`, your instances and your engagement folders stay where
+they are.
 
 If the upgrade stops at its fetch with `! [rejected] v2.2.1 -> v2.2.1 (would clobber existing tag)`, the install holds
-a tag of that name from its previous address: remove it with `git tag -d v2.2.1`, then upgrade again. Nothing else had
-changed.
+tags from its previous address: the upgrade has just named them (`these tags came from another repository`) and printed
+the `git tag -d` for exactly those. Run it, then upgrade again. Nothing had changed.
+
+To keep this folder exactly as it is, replace the install instead, as above: a fresh clone of farstic/snowarch, with the
+licence, the instance store, `clients/` and the rest carried over as listed there.
 
 If the upgrade stops at its fetch with
 `upgrade: origin asked for credentials, or was not found — it may be private or moved; check it with git remote get-url origin; nothing was changed`,
 point the install at the address releases are published at: `git remote set-url origin https://github.com/farstic/snowarch.git`
-from its folder, then the upgrade again.
+from its folder, then the upgrade again; if that stops at the tags, as above, run the `git tag -d` it prints.
 
 An install that still has the v2.2.0 tag can go back with `upgrade --to v2.2.0`; it is then a 2.2.0 install again and
 returns by the fresh install above.
@@ -181,13 +190,13 @@ Get-ChildItem memory, scratchpad, deliverables, diagram-preview -ErrorAction Sil
 macOS / Linux:
 
 ```sh
-git -c advice.detachedHead=false clone --branch v2.2.4 https://github.com/farstic/snowarch.git && cd snowarch && ./bootstrap.sh
+git -c advice.detachedHead=false clone --branch v2.2.5 https://github.com/farstic/snowarch.git && cd snowarch && ./bootstrap.sh
 ```
 
 Windows PowerShell:
 
 ```powershell
-git -c advice.detachedHead=false clone --branch v2.2.4 https://github.com/farstic/snowarch.git
+git -c advice.detachedHead=false clone --branch v2.2.5 https://github.com/farstic/snowarch.git
 cd snowarch
 .\bootstrap.cmd
 ```

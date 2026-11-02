@@ -10,15 +10,24 @@ import { currentCapabilities, reloadInstances, serverStatus } from './status.js'
  * call for the labels. Under `sysparm_display_value=all` every field is { display_value, value }, and a reference adds
  * `link` (the owner's probe, 2026-10-22). The stored value stays the only truth for any logic; the label is for a
  * person reading. Not in the contract, which carries names, gates and `mutates` only, so no generated line moves.
+ *
+ * ARC-09-C225 — the instruction is the owner's rendering rule of 2026-10-23, its wording measured before and after. It
+ * had named choices, references and dates for 'Label (value)'; on the owner's rc.1 sitting the model gave it to the
+ * states alone, and the owner chose that rendering as the rule. Under a first wording, "a code hidden behind a word",
+ * Sonnet dropped the code from state labels ("Assess" for "Assess (-4)"), so the clause names a choice and its negative
+ * codes.
  */
 const DISPLAY_VALUE = {
     type: 'string',
     enum: ['false', 'all'],
     description: 'For a list a person will read, pass display_value: \'all\' with `fields`: each field then carries its '
-        + 'stored value and its label. Show a field as \'Label (value)\' when the two differ (choices, references, dates), '
-        + 'and once when they are equal. A date\'s label is in the user\'s format and time zone; its stored value is UTC. '
-        + 'Use only the stored value in any query, filter, encoded query or write, never the label. Default \'false\' '
-        + 'returns stored values only, as before; \'true\' is refused.',
+        + 'stored value and its label. A choice whose label hides its code (negative codes too) shows as '
+        + '\'Label (value)\' ("Resolved (6)"); a label '
+        + 'that already carries the value ("3 - Moderate"), or differs from it only by case ("Normal"), shows once; a '
+        + 'reference shows by name, its sys_id only on request; a date shows as its label, with its difference from UTC '
+        + 'noted once, not beside each date. A date\'s label is in the format and time zone of the ServiceNow user the '
+        + 'server signs in as; its stored value is UTC. Use only the stored value in any query, filter, encoded query or '
+        + 'write, never the label. Default \'false\' returns stored values only, as before; \'true\' is refused.',
 };
 /** Why 'true' is refused: the reason, said where the refusal is. */
 const DISPLAY_VALUE_TRUE_REFUSED = 'display_value \'true\' is refused: it returns labels only, without the stored values, '

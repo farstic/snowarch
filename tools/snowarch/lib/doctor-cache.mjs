@@ -107,6 +107,13 @@ export function cacheStale(root, { now = Date.now(), maxAgeMs = null, read = rea
  */
 export const COMPATIBILITY_KEYS = Object.freeze(['version', 'at', 'writer', 'mode', 'checks', 'summary']);
 
+/**
+ * ARC-09-C200 — the keys the DOCTOR's own cache carries: COMPATIBILITY_KEYS and `modeLine`, which
+ * U7 reads from the cache its doctor wrote in this run. Not in COMPATIBILITY_KEYS, because every
+ * writer must produce those, and the bootstrap's cache and the launchers' have no Mode line to write.
+ */
+export const REPORT_CACHE_KEYS = Object.freeze([...COMPATIBILITY_KEYS, 'modeLine']);
+
 /** `{ ok, warn, fail }` from the checks themselves — never a count kept in parallel with them. */
 export function summarise(checks) {
   const summary = { ok: 0, warn: 0, fail: 0 };

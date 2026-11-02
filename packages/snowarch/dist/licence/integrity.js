@@ -63,6 +63,8 @@ export const COVERAGE = Object.freeze({
         'bootstrap.sh', 'bootstrap.ps1', 'snowarch', ...['bootstrap', 'snowarch'].map((stem) => `${stem}.cmd`),
         'package-lock.json', '.mcp.json',
         'engine.config.schema.json', '.gitattributes', '.gitignore', '.editorconfig', '.gitmodules', 'vendor/docs-areas.txt',
+        // ARC-09-C250 — the corpus map, made from the whole corpus at the pin: a sparse install reads every area's row in it.
+        'vendor/docs-map.md',
         'LICENSE', 'NOTICE', 'LICENSING.md', 'TRADEMARKS.md', 'README.md',
         // The scripts the skills and the docs CLI run.
         'scripts/render-drawio.sh', 'scripts/render-diagrams.sh', 'scripts/render-diagrams.ps1', 'scripts/render-pdf.sh',

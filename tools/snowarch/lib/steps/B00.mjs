@@ -17,17 +17,18 @@
 // been uninstalled.
 import { execFileSync } from 'node:child_process';
 import { batchCommand, isBatch } from '../spawn-batch.mjs';
-import { statfsSync } from 'node:fs';
+import { existsSync, statfsSync } from 'node:fs';
 import { arch, platform, release } from 'node:os';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { EXIT_PREREQ } from '../exit.mjs';
 import { pathKey } from '../path-key.mjs';
 import { remedyFor } from '../remedies.mjs';
 import { formatVersion, meetsFloor, parseVersion } from '../versions.mjs';
-import { MODE, RETRY_WAITS_MS, attemptSuffix } from '../docs/sync.mjs';
+import { CORPUS_DIR, MODE, RETRY_WAITS_MS, attemptSuffix } from '../docs/sync.mjs';
 import { corpusProbe, probeNetwork, probeRetryReason } from '../probe-net.mjs';
 import { which } from '../which.mjs';
 import { INPUTS } from '../inputs.mjs';
+import { GB, gigabytes, megabytes } from '../size.mjs';
 
 export const id = 'B00';
 export const title = 'preflight';
@@ -39,13 +40,16 @@ export const cacheable = false;
 // set — the table is one answer, and `docs/ARCHITECTURE.md` renders from it.
 export const inputs = INPUTS.B00.resolve;
 
-/** Disk. Not a configured floor — it is what this repository costs, and the numbers are its own. */
-const GIB = 1024 ** 3;
-export const DISK_SPARSE = 1 * GIB;      // sparse docs ≈ 300 MB + deps ≈ 72 MB + headroom
-export const DISK_FULL = 1.5 * GIB;      // `--docs full` is the whole corpus
+/**
+ * Disk. Not a configured floor — it is what this repository costs, and the numbers are its own. Decimal, as the page's are
+ * (ARC-09-C259): both launchers hold the same floor as a number of bytes (`DISK_FLOOR_BYTES`, `$DiskFloorBytes`), and
+ * tests/size-unit.test.mjs reads all three files.
+ */
+export const DISK_SPARSE = 1 * GB;       // the floor: a sparse corpus ≈ 365 MB on disk + deps ≈ 72 MB + headroom
+export const DISK_FULL = 1.5 * GB;       // a fresh whole corpus ≈ 490 MB on disk (docs-real run 41063258542) + deps + headroom
 
-const mb = (bytes) => `${Math.round(bytes / (1024 * 1024))} MB`;
-const gb = (bytes) => `${(bytes / GIB).toFixed(1)} GB`;
+const mb = (bytes) => `${megabytes(bytes)} MB`;
+const gb = (bytes) => `${gigabytes(bytes)} GB`;
 
 /**
  * Run a tool by its RESOLVED path.
@@ -174,10 +178,15 @@ export function checkClaudeCode({ exec, floors, plat, skip }) {
 }
 
 /** 4. Enough disk for the corpus, the dependencies and some headroom. */
-export function checkDisk({ root, docs, plat, statfs = statfsSync }) {
+export function checkDisk({ root, docs, plat, statfs = statfsSync,
+  hasCorpus = existsSync(join(root, CORPUS_DIR, 'markdown')) }) {
   // `MODE.full` rather than the word: it is ARC-03's vocabulary for a checkout shape, and it is
   // also spelled like a preset the contract owns, so a quoted copy here is the wrong kind of name.
-  const need = docs === MODE.full ? DISK_FULL : DISK_SPARSE;
+  // ARC-09-C244 — a FRESH whole corpus needs DISK_FULL. An install that already holds a corpus keeps the floor every
+  // run has asked for: what a sparse corpus lacks (151 MB on disk, measured; a 24-area set made from 2.2.5 lacks
+  // 121 MB, docs-real run 40131491002) fits in that floor's headroom, and the move to the whole corpus must not stop
+  // an upgrade that would otherwise pass.
+  const need = docs === MODE.full && !hasCorpus ? DISK_FULL : DISK_SPARSE;
   let free;
   try {
     const s = statfs(root);

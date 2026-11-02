@@ -9,6 +9,513 @@ All notable changes to this project are documented in this file. Everything hand
 
 ### Notes
 
+## 2.2.5 — 2026-11-02
+
+### Notes
+
+**A patch release: the whole ServiceNow documentation is on disk by default, `/snowarch finding` lets you report what
+the Architect got wrong, the Architect grounds an Envelope on twelve pages instead of eight, and, when a link's address
+is not a page, it is told which page the link means, where the documentation has that page.** Every install made before
+2.2.5 moves to the whole documentation, all 56 areas, once, on its upgrade: a default 2.2.4 install (20 areas) takes
+about 150 MB more on disk and about half a minute of work after you confirm the plan (measured on an Apple-silicon Mac
+in design-only mode; the time depends on your network), and an install that already had every area only changes its
+documentation pin. A move that is interrupted is finished by the next run; `--docs sparse` keeps only the cited areas,
+for CI. `/snowarch finding` writes a note in the engagement's own folder, which stays on your machine, and prints a
+masked copy in the reply for the person who issued your licence. While its twelve pages last, the Architect opens a
+construct's page before it calls the construct unverified. A link in the documentation often names a page that is not at
+that path; after a Read of such a page fails, the Architect is told which page was meant when the documentation has it,
+and a reply that cites such a path, where the documentation has the page under another path, gets one line with the
+right path. The doctor checks both hooks that do this. Smaller fixes: the HR Service Delivery gateway no longer gives
+employees the HR agent role; the ITSM gateway names a finished task SLA's stage the way an instance holds it; a switch
+of instance holds through the capabilities read; `instance add` takes a host typed without `https://` and never quotes a
+password back; `doctor --json` masks every instance address; a file the Architect writes under `clients/` is checked for
+dead citations before you see it; and, from your next upgrade on, `upgrade` names a file of your own in a managed folder
+before it moves anything, and plans from the release it moves to.
+
+### Fixed
+
+- The upgrade's remedy for an install cloned from the engineering repository now works. The first line names the release tags the
+  install holds from v2.2.1 on and prints two commands, each on a line of its own, `git remote set-url origin …` and `git tag -d …`,
+  because git refuses to replace those tags and the upgrade never forces one; when the fetch is refused for that reason it says
+  which tags came from another repository and prints the command that removes exactly those, where it said only that it could not
+  fetch the release tags; and the fetch runs in git's English, so the lines read the same in every locale (ARC-09-C262).
+- The doctor's release-currency check (E-28) now says when the machine's DNS did not answer for the remote's name within 5 s, where
+  it said the remote did not answer within 15 s; a name that does not resolve reads as before (ARC-09-C261).
+- `./snowarch doctor --json` left a second instance address unmasked: where one value named two instances, or the same
+  instance twice, only the first became `<host>`, and the rest stayed in the text a user pastes into an issue. Every
+  ServiceNow-hosted instance URL in the output is masked now (ARC-09-C227).
+- The ITSM gateway gave a finished task SLA's stage as `complete` and warned against `completed`, the value an
+  instance's choice list holds (PN-25). It now names `completed`, labelled Completed, and says that on a breach Has
+  Breached becomes true while, by default, the stage stays In Progress (ARC-09-C228).
+- `snow_cat_active_slas_index`, the server's list of active Task SLAs, now selects those in stage In Progress or Paused,
+  breached or not. It selected by a stage value no row holds (PN-25), so finished and cancelled SLAs could come back,
+  and it left out breached SLAs still running. Where `com.snc.sla.compatibility.breach` is set to true, a breached SLA's
+  stage is Breached, and the list still leaves it out (ARC-09-C229).
+- `./snowarch upgrade` moved the checkout and only then stopped when a folder the release manages held a file the
+  release does not ship, such as a skill of your own under `.claude/skills/`. From this release on, the upgrade names
+  such files before anything moves, and changes nothing until you move them out of those folders. The upgrade that
+  brings you this release is still run by the one you have installed, so that one checks only after the move
+  (ARC-09-C197).
+- A file the Architect wrote under `clients/` could cite a documentation path that does not exist, and nothing checked
+  it before the file reached you. A check now runs after every such write: it looks each cited path up in the
+  documentation's own index, and reports each one the documentation does not have, with its line, to the Architect, with
+  the instruction to correct it before presenting the file. A real page this install did not download is not reported as
+  dead; the Architect is told the citation stands. Notes `/snowarch finding` writes under
+  `clients/<engagement>/findings/` are not checked, because they record a path as you saw it. The check is a hook the
+  bootstrap writes beside the session banner's, in `.claude/settings.local.json`, when Node is present; it runs
+  whichever way the folder was reached, through a link included, and it does nothing if you move to a release without it
+  (ARC-09-C231, ARC-09-C239).
+- The session banner did not appear when the path of the folder you installed into held a space: the hook command left
+  the project path unquoted. It is quoted now; the bootstrap, or `./snowarch doctor --fix`, rewrites the entry
+  (ARC-09-C239).
+- After `./snowarch upgrade` moved the checkout, the doctor lines it closed with were titled by the release you had
+  installed, not the one you moved to: a check the new release added could print without its title, and one it renamed
+  under its old one. The lines now print exactly the checks the new release's doctor reported in that run, with its
+  titles. When no check fails and the doctor has written its cache for the run, they keep the instance names and
+  commands that cache holds; otherwise they are the doctor's masked `--json` text, with `<label>` and `<host>` in place
+  of those names, as are the bootstrap's closing lines after a failed check. The upgrade that brings you this release is
+  still run by the one you have installed, so the change shows from your next upgrade on (ARC-09-C200, ARC-09-C242).
+- `./snowarch upgrade` worked out the steps it would re-run with the release you had installed, so a new release that
+  changed what a step depends on could re-run a step its plan never named. The plan is now the new release's own
+  answer, asked once its files have passed the check against its signed manifest; when it cannot be asked, the plan
+  says it was worked out by the installed release, and why. Asking makes the plan step take longer, up to 30 seconds
+  when the new release does not answer. The upgrade that brings you this release is still planned by the one you have
+  installed, so the change shows from your next upgrade on (ARC-09-C195, ARC-09-C241).
+- `./snowarch instance add` refused a host typed without `https://`, such as `acme.service-now.com`, as not a URL, and
+  with a port or a username in front it said to use https. Such a host is now offered back as
+  `https://acme.service-now.com`, to accept with Enter, as a single word such as `acme` already was; a host with a path
+  or credentials gets that refusal's own reason. Under `--yes`, where nothing is asked, the URL used is now printed for
+  both forms (ARC-09-C223).
+- `./snowarch instance add` quoted a URL back with its password in it when the URL carried a username and a password
+  and did not parse, for example with `#`, `?` or `/` in the password, or a port out of range. Any `@` in the URL is
+  now refused as credentials, before anything else, and nothing is quoted back. A scheme typed as `https:/` or
+  `https:` is now refused as not a URL, as `https//` already was, instead of being taken as `https://` (ARC-09-C240).
+- After `snow_core_instance_switch`, the capabilities read that comes before every write moved the session back to the
+  default instance without saying so, so the write that followed went to that instance. The read now keeps the session
+  on the instance it was switched to, and says so when that instance can no longer be loaded. A resumed session starts
+  a new server, which is on the default instance; the Architect is instructed to name the instance from that read in
+  its write-approval question (`About to … on instance "<label>"`), so check that name before you approve
+  (ARC-09-C245).
+- On Windows without Node, `bootstrap.cmd --docs full` stopped at B02 with "The term 'Invoke-DocsRecipeFull' is not
+  recognized": Windows PowerShell 5.1 read the recipe file it loads as the ANSI code page, because the file had no
+  byte-order mark, and misread it. The file has one now, so the whole corpus, the default from this release, installs
+  there too (ARC-09-C244).
+- The HR Service Delivery gateway gave `sn_hr_core.basic` as the role employees receive for the Employee Center, and as
+  read access to HR cases filtered by the case's subject or HR group. It is the HR agent role, and it contains write
+  access to all HR cases, so a design that followed the old text would have given every employee agent access. The
+  gateway now names the employee client roles (`sn_hr_core.hrsm_*`), the client role assignment rules that grant them,
+  and the COE security policies that limit which groups can read or write the HR cases under a COE after creation.
+  The Technical Designer's worked example no longer gives employees the agent role in its ACL matrix (ARC-09-C250).
+- The "Read before sending" list of `/snowarch finding` no longer opens with "The Architect". A note that says "The
+  Architect said …", which is nearly every finding, put the product's own name in that list as a likely person or
+  company, in the one list the reader has to read. The list now looks past a sentence-initial "The" to find a product
+  name, so "The Architect", "The Now Assist" and "The Service Desk" are not items and "The Hague" still is. What the
+  masker hides is unchanged (ARC-09-C257).
+- The out-of-disk message of a failed documentation sync now says what the documentation takes (about 490 MB on disk, a sparse
+  checkout about 365 MB), and the one for a failed npm install says what the dependencies take (about 16 MB). Both read "need
+  ~400 MB free (~700 MB for --mode full)", which named a flag the bootstrap does not have (ARC-09-C260).
+
+### Changed
+
+- The server gives the model one rule for showing a field in a live list: a choice whose label hides its code, negative
+  codes too, with its label and value, as "Resolved (6)"; a label that already carries its value ("3 - Moderate"), or
+  differs from it only by case ("Normal"), once; a reference by its name, with its sys_id only on request; a date in the
+  format and time zone of the ServiceNow user the server signs in as, with its difference from UTC noted once. Queries,
+  filters and writes still use the stored value (ARC-09-C225).
+- `./snowarch doctor --json` and `./snowarch status --json` now also mask your own instances by what the instance store
+  holds: its hosts whole, with or without a scheme, and an organisation's or instance's name of four letters or more
+  that is not one of the product's own words. A name is masked on its own, with an environment and digits after it
+  (`acmebankdev`), and with an uppercase letter or a digit after it (`AcmeBank`, `acme2`). A lowercase continuation is
+  not a boundary: `corpus` is left alone under the name `corp`, and `acmebank` under `acme`. The store's URLs are read
+  for this, never its credentials. The domain of an address is masked whole, as `<domain>`, whatever the store holds, so
+  a username reads `j***@<domain>`; the JSON had kept it (ARC-09-C221, ARC-09-C242).
+- `/snowarch finding` now masks any word that begins with the engagement's name, or with an alias, when the name has four
+  letters or more: with the name `acme`, `AcmeMID01`, `acme01` and `acmedev` are masked, as the words a store's name begins
+  already were. A name of three letters or fewer, and one of the product's own words, is still masked only where it stands
+  alone. Two store names of one kind give one warning line, not the same line twice (ARC-09-C251).
+- The install page says that Git for Windows 2.54 and 2.55's `… is not a commit!` line during the clone is harmless,
+  and links to the troubleshooting paragraph that explains it (ARC-09-C224).
+- The bootstrap now fetches the whole ServiceNow documentation, all 56 areas, instead of only the areas the specialists
+  cite, so the Architect can read the pages it needs in every area, Virtual Agent, Security Operations and Field Service
+  among them. An install made before 2.2.5 moves to the whole corpus once, on its upgrade to 2.2.5. For a default 2.2.4
+  install (20 areas) that is about 150 MB more on disk; the move took 7 to 14 seconds on the CI machines (macOS, Linux
+  and Windows) and about half a minute, once the plan was confirmed, on an Apple-silicon Mac in design-only mode, and
+  the time depends on the network. An install that already had every area only changes its documentation pin, and a move
+  that is interrupted is finished by the next run. `--docs sparse` keeps only the cited areas, for CI; the doctor then
+  warns that the Architect cannot read the others (ARC-09-C244).
+- `--docs sparse` holds 24 areas instead of 20: acct-lifecycle-events, customer-relationship-management,
+  delta-xanadu-australia, healthcare-life-sciences and release-notes, which the skills now cite, join it, and
+  now-platform, which none cites, leaves it (ARC-09-C250).
+- `./snowarch status --help`, the status template and the Status skill now say what an exit code of 1 means: a check
+  failed, which the skill reports as a failed check and no longer as a finding; the doctor itself failed, when the
+  one line printed is a Mode line that says `doctor unavailable`, which the skill relays as it is; or the command
+  itself failed, which the skill relays with what it printed, saying the mode is unverified (ARC-09-C243).
+- `/snowarch finding` now prints the masked copy in its reply itself, as plain text with no code fence. It used to come out
+  fenced after a sentence of prose in some sessions, and in others it was left in the tool result with only a pointer to it
+  in the reply; the copy is what you send, so it is in the reply, as the masker printed it (ARC-09-C252).
+- `/snowarch finding` now also writes the masked copy to a file beside your note, `<note>.masked.txt`, and tells you to
+  send that file, never the note. Copying the text out of the Claude Code window lost characters twice in testing. The
+  file holds the masked text and nothing else, and is replaced each time you run it. The file's name travels with it, so
+  the note's name is masked like the text: a note named for the client, an alias or a record number gets no copy, and the
+  last line of the reply says so without repeating the name; the Architect names a note for the problem, and
+  `--next-name` refuses a slug that holds the engagement's name or an alias. When the file cannot be written, the last
+  line says so: the text above it is then the only current copy, and an older copy beside the note, which is left as it
+  was, is out of date (ARC-09-C258).
+- The Architect's default budget for grounding an Envelope is twelve corpus pages, not eight, and while pages remain
+  in it, the Architect opens a construct's page before it calls the construct unverified. A Grep line finds a page; a
+  Read of the page is what grounds a claim. When one request fires several gateways, each Envelope has twelve pages of
+  its own, not shared with another. The budget and the co-fire rule read the same in CLAUDE.md and in the six gateways
+  (ARC-09-C256).
+- The bootstrap, the release's install-metrics table and the CI gates count one megabyte, 10^6 bytes, as the install page and
+  `./snowarch docs status` do. The bootstrap's `[docs]` line, which read 279 MB for the working tree the page calls 293 MB,
+  now reads 293 MB; the table's "docs on disk" column, which summed file sizes and not what the disk holds, is "docs working
+  tree"; and the footprint gate reads 16.0 MB where it read 15.3, with its limit of 80 unchanged. The bootstrap's disk check
+  counts the same way, so its floors move with the unit, 1 GiB → 1 GB and 1.5 GiB → 1.5 GB for a fresh whole corpus, and it
+  prints gigabytes of 10^9 bytes where it printed GiB as "GB" (ARC-09-C259).
+
+### Added
+
+- `/snowarch finding` records something the engine got wrong as a note in the engagement's own folder, which stays on
+  your machine, and prints a masked copy to send to the person who issued your licence. Instance names and URLs,
+  sys_ids, record numbers, e-mail addresses, IP addresses and home folders become placeholders, and so do credentials in
+  their usual forms, your instance's stored username and password, and the client names you gave it. The copy ends with
+  what no rule can catch, for you to check before sending (ARC-09-C221).
+- A page of the documentation that a link gives with a path the documentation does not have is found for the Architect.
+  In seven links of ten the path carries a leading `australia/` or leaves out a folder, so a Read of it failed and a
+  citation copied from it was dead. After a Read of such a page fails, the Architect is told which page was meant. A reply
+  that cites a path the documentation does not have, where the page is known and the reply does not already name it, is
+  sent back once for one line that starts "Correction:", and the Architect does not write the answer again. Both notices
+  ask the Architect not to mention them, so the reply shows the page and the correction and not the hook. The copy that
+  `/snowarch finding` prints is not checked, because a finding records a path as you saw it. Nothing is said when it would
+  be a guess: two pages fit, no page has that file name, or the only page of that name is in another area. The bootstrap
+  writes the two hooks into `.claude/settings.local.json` beside the citation check (ARC-09-C254).
+- `./snowarch doctor` reads those two hooks as it reads the citation check: an entry missing from
+  `.claude/settings.local.json`, or written wrong, is a warning that `./snowarch doctor --fix` repairs, and a hook script
+  gone from the checkout is a failure that names the file to check out (ARC-09-C255).
+
+### Added
+
+- engine: ARC-09-C259, the product counts one megabyte, 10^6 bytes (5ccb095)
+- engine: ARC-09-C258, the finder writes the masked copy beside the note (f84790d)
+- doctor: ARC-09-C255, the doctor reads the Read-failure and Stop hook entries (7343a05)
+- engine: ARC-09-C254, B07 writes the PostToolUseFailure and Stop hooks (9a85272)
+- engine: ARC-09-C254, a reply that cites a dead path is sent back once for a line (c444f73)
+- engine: ARC-09-C254, a failed Read of a corpus page is told which page was meant (44994ae)
+- engine: ARC-09-C254, the resolver names the page a corpus link stands for (b083e81)
+- docs: ARC-09-C250, a renamed area shows both of its titles in the corpus map (be47196)
+- engine: ARC-09-C250, P4: the banner says which corpus areas are on disk (ced1f33)
+- server: ARC-09-C250, the corpus map ships: the release coverage names it (b379d4e)
+- docs: ARC-09-C250, P3: the corpus map, made from the whole corpus at the pin (fe1e41f)
+- engine: ARC-09-C239, the citation hook calls no real page dead and runs on any path (6b5de37)
+- engine: ARC-09-C244, under the marker, a sparse run sets the cone again (a2a927b)
+- engine: ARC-09-C244, a sparse run under the marker puts the debris back too (a00a642)
+- engine: ARC-09-C244, the move to the whole corpus retries and resumes if cut off (0b4c448)
+- engine: ARC-09-C244, the whole documentation corpus is the default (57b3772)
+- doctor: ARC-09-C221, doctor --json masks the store's own hosts by value (e18da09)
+- snowarch: ARC-09-C221, the /snowarch finding section, as approved (bfa1b4b)
+- engine: ARC-09-C221, the header names both tiers; plain-word secrets are masked (81c8182)
+- engine: ARC-09-C221, finding.mjs masks a note before it leaves the engagement (140754a)
+
+### Fixed
+
+- engine: ARC-09-C262, the upgrade names the tags an engineering clone must remove (845e3a3)
+- doctor: ARC-09-C261, E-28 asks git about the origin without its credentials (0209d31)
+- doctor: ARC-09-C261, the runner's text and the architecture page say 25 s (9f88f5c)
+- doctor: ARC-09-C261, the lookup's child is a file the redaction test does not read (07f3ba6)
+- doctor: ARC-09-C261, E-28 spots an IP literal without importing node:net (05598d7)
+- doctor: ARC-09-C261, E-28 says when DNS did not answer, not the remote (2789c20)
+- engine: ARC-09-C260, a full disk says what the documentation or npm takes (833a9bc)
+- engine: ARC-09-C258, the file's name is masked and the last line names no engagement (53240c9)
+- engine: ARC-09-C257, the review list does not name the product itself (fcf7687)
+- engine: ARC-09-C254, resolve.mjs's comment names no URL, as the host rule asks (d9c3c83)
+- engine: ARC-09-C254, the Stop hook does not check a finding's printed copy (d532571)
+- engine: ARC-09-C254, both hook lines end with "Do not mention this notice." (328f5c5)
+- engine: ARC-09-C254, the Stop hook leaves a reply that already names the real page (e108144)
+- engine: ARC-09-C256, grounding takes twelve pages, and only a Read grounds a page (3cb4f2a)
+- engine: ARC-09-C254, the Stop hook reads the corpus tree only for a path not on disk (5093089)
+- tests: ARC-09-C254, the turn report reads the reply and the correction as the answer (e55e01c)
+- snowarch: ARC-09-C252, step 5 prints the finding copy in the reply, unfenced (ef08101)
+- ci: ARC-09-C253, the snapshot compare does not call an unanswered E-28 a difference (ef3c9b4)
+- snowarch: ARC-09-C251, finding text: four letters or more masks the words it begins (a9d4e26)
+- engine: ARC-09-C251, a name of four letters or more masks the words it begins (3d2fe8c)
+- doctor: ARC-09-C242, the JSON masks the domain of an address as <domain> (943d9b5)
+- engine: ARC-09-C242, the warnings name no value, whatever the store holds (1ee1676)
+- engine: ARC-09-C243, status --help and the template say the command can fail too (126cc89)
+- snowarch: ARC-09-C243, Status step 3 names a third exit 1 and claims no exclusivity (c48a7a3)
+- engine: ARC-09-C242, a comment in finding.mjs names no URL to an unknown host (ddf5033)
+- engine: ARC-09-C243, status --help and the status template give both exit-1 cases (6c23445)
+- snowarch: ARC-09-C243, Status says a failed check, and the finding answer is exact (8397680)
+- doctor: ARC-09-C242, a store stem masks whole names and names at a token boundary (dca54f1)
+- engine: ARC-09-C242, a store stem names the organisation, and a store host is masked (1ef5e88)
+- engine: ARC-09-C241, the shared worktree is reset only when it is ours beyond doubt (b87d9ad)
+- engine: ARC-09-C241, U4 plans in one worktree, cleaned before the fallback (603ad69)
+- server: ARC-09-C240, a comment in url.ts names no URL to an unknown host (55f1de0)
+- server: ARC-09-C240, a URL with credentials is refused before it is parsed (f6c856c)
+- docs: ARC-09-C250, the sparse set follows the new citations: 20 areas become 24 (6806e0f)
+- engine: ARC-09-C250, M3: employee access in the TD example, the On Hold row and O1–O9 (ad634b0)
+- engine: ARC-09-C250, M2: HR states, client roles and F1–F8 now cite the corpus (d4e6fa8)
+- engine: ARC-09-C250, M: the printed markers cite what the corpus documents (1a03966)
+- engine: ARC-09-C250, P5: no skill licenses answers from general ServiceNow knowledge (1ba5116)
+- engine: ARC-09-C250, P2: the gateway pointers name the pages that hold their topic (efb7068)
+- engine: ARC-09-C250, P1: the CSM skill and the story writer search escape-safe (913d7bb)
+- engine: ARC-09-C244, the missing-corpus remedies fetch the default corpus (2f73e6a)
+- bootstrap: ARC-09-C244, a Windows install without Node can fetch the whole corpus (ccda4b1)
+- server: ARC-09-C245, both reloading reads keep the session on its instance (6676592)
+- tests: ARC-09-C202, the reader scopes on Windows: it asks the source, not its name (cfb1c87)
+- tests: ARC-09-C202, the licence start reader reads each name where it is written (2b8620a)
+- server: ARC-09-C223, a bare host is proposed as https://<host>; --yes names the URL (d7c3d9d)
+- engine: ARC-09-C195, the plan helper's timeout is told by error and signal (ff5a913)
+- engine: ARC-09-C195, U4 plans with the target's own runner, after the manifest check (5b9c48d)
+- doctor: ARC-09-C200, REPORT_CACHE_KEYS names the modeLine U7 reads (45ed9f0)
+- engine: ARC-09-C200, U7 prints the target's own checks; the cache lends only words (8053187)
+- engine: ARC-09-C231, B07 registers the citation hook; E-08 and E-10 read it (2c8e879)
+- engine: ARC-09-C231, the PostToolUse hook returns dead citations under clients/ (8225851)
+- engine: ARC-09-C197, U4 names the files U5 would call extra, before the move (403a101)
+- server: ARC-09-C229, the description says why a breach is found by has_breached (a7b0e9a)
+- server: ARC-09-C225, the first clause names a choice whose label hides its code (7522853)
+- server: ARC-09-C229, snow_cat_active_slas_index lists Task SLAs In Progress or Paused (73bb7c2)
+- itsm-specialist: ARC-09-C228, on a breach the stage stays In Progress by default (4c38b75)
+- itsm-specialist: ARC-09-C228, a finished SLA's stage is `completed`, citing PN-25 (eb68f0e)
+- server: ARC-09-C225, the display_value description states the owner's rendering rule (64033ef)
+- doctor: doctor --json masks every ServiceNow-hosted instance URL in a value, not only the first (ARC-09-C227) (3be9f1d)
+- tests: ARC-09-C220, the licence fixtures' repositories go through initFixtureRepo (09d1372)
+
+### Internal
+
+- engine: ARC-09-C262, the recording seam is git's, not a presumed product start (b0b8bd5)
+- plan: ARC-09-C263, the grounding default acts as a ceiling, recorded for 2.2.6 (5b22efc)
+- plan: ARC-09-C262 built in #563, for 2.2.5 through rc.3 or 2.2.6 (7dbc2a2)
+- engine: ARC-09-C262, the repository and start guards take the new cases (9bcb6ea)
+- changelog: ARC-09-C262, the upgrade's remedy for an engineering clone works (d275071)
+- ARC-09-C262, MIGRATION names every tag and keeps the fresh clone as the alternative (676bb55)
+- engine: ARC-09-C262, red: the upgrade names the tags an engineering clone removes (64886e8)
+- doctor: ARC-09-C261, red: no origin credential reaches a command line (a44e01e)
+- plan: ARC-09-C261 built in #562, for 2.2.5 (311f4ac)
+- doctor: ARC-09-C261, red: the runner and its page say 25 s for a network check (b13a6cc)
+- changelog: ARC-09-C261, the doctor says DNS when DNS did not answer (7435aaa)
+- doctor: ARC-09-C261, red: E-28 tells a silent resolver from a silent remote (5732c5a)
+- plan: ARC-09-C260 built in #561, for 2.2.5 (b164091)
+- changelog: ARC-09-C260, the out-of-disk messages name what they took (a45ba14)
+- engine: ARC-09-C260, red: a full disk says what the documentation or npm takes (2497de8)
+- ARC-09-C259, the install page's docs-step lines are a CI run's, at the new unit (b33b169)
+- plan: ARC-09-C259 built in #560, for 2.2.5 (ef72bec)
+- changelog: ARC-09-C259, one megabyte, and the disk floors move with it (ea114df)
+- engine: ARC-09-C259, red: the product counts one megabyte, 10^6 bytes (de9c646)
+- changelog: ARC-09-C258, the file's name is masked, and an older copy is named (3f54e3f)
+- engine: ARC-09-C258, red: the file's name is masked and the line names no client (b39f0e2)
+- plan: ARC-09-C258 built in #559, for 2.2.5 (2e0f586)
+- changelog: ARC-09-C258, the finder also writes the masked copy to a file (1d9b7ce)
+- engine: ARC-09-C258, red: T-37 and T-46 say the copy is also a file (7a86055)
+- engine: ARC-09-C258, red: the finder writes the masked copy beside the note (409bc2d)
+- the install page no longer says the first releases table is pending (ca29862)
+- plan: ARC-09-C259 takes B00's comments and the install transcript with it (9d71f8d)
+- plan: ARC-09-C257 built in #557, C258 and C259 planned for 2.2.6 (c09ecfb)
+- engine: ARC-09-C257, red: the review list does not name the product itself (f2f2b9e)
+- ARC-09-C244, the install page says which megabyte its sizes are in (a871df7)
+- ARC-09-C244, the install page's corpus costs follow docs-real run 41063258542 (030a2cd)
+- changelog: the 2.2.5 notes say what the move to the whole documentation cost (865fe25)
+- docs: the corpus map names the new pin (72a3a04)
+- docs: the status fixtures and the panel sample follow the corpus pin to c10276e (854e7af)
+- changelog: the 2.2.5 notes, the lead says where the documentation has the page (4582fb6)
+- changelog: the 2.2.5 notes, reviewed: five claims narrowed, and C231 added (9c7eb2d)
+- plan: ARC-09-C217c, parked as research only, not in 2.2.5 (8174bb0)
+- plan: ARC-09-C226, C234 failed its primary, so the row is back to design (34dcfd9)
+- changelog: the 2.2.5 notes, written before the release candidate (ede6516)
+- plan: ARC-09-C255, the row names its pull request, #554 (d11665c)
+- plan: ARC-09-C254, the row says the A/B's cases are in the validation spec (39847e2)
+- tests: ARC-09-C254, T-39 to T-46: the A/B's cases are in the validation spec (1e4f4a0)
+- tests: ARC-09-C254, red: the A/B's cases are permanent cases in the validation spec (f92f529)
+- plan: ARC-09-C254, the row records the finding copy rule and 46 Stop mutants (d03f32e)
+- changelog: ARC-09-C254, a finding's printed copy is not checked (c306e9a)
+- tests: ARC-09-C254, red: a finding's printed copy is not checked for dead paths (e8fb8fd)
+- plan: ARC-09-C254, the row records the two rulings after the floor runs (efa42f4)
+- changelog: ARC-09-C254, the Stop hook leaves a reply that names the page (91ddd45)
+- tests: ARC-09-C254, red: both hook lines ask that the notice not be mentioned (51c98a3)
+- tests: ARC-09-C254, red: a reply that already names the real page is not sent back (fb8a8be)
+- plan: ARC-09-C256, the row records the owner's decision of 2026-10-29 (b935c5a)
+- ARC-09-C256, CONTRIBUTING's cap sentence names the owner's decision, 2026-10-29 (d887b8b)
+- plan: ARC-09-C254, the row names its pull request, #553 (2cd7a37)
+- plan: ARC-09-C256, the row is BUILT in #552 for 2.2.5 (e5ff644)
+- plan: ARC-09-C256, the row, BUILT for 2.2.5 (44a325a)
+- changelog: ARC-09-C256, grounding takes twelve pages, and a Read grounds a page (5d016b0)
+- ARC-09-C256, CONTRIBUTING gives CLAUDE.md's byte cap as 20,600 (583ae25)
+- tests: ARC-09-C256, red: the grounding budget is twelve pages, the cap 20,600 (9ac91ee)
+- engine: ARC-09-C254, the Stop hook's report says what its load option is for (02ad92e)
+- plan: ARC-09-C255, the row, and the changelog line for the doctor's two hook checks (272ee4a)
+- doctor: ARC-09-C255, red: the doctor reads the Read-failure and Stop hook entries (e578bd6)
+- plan: ARC-09-C254, the doctor reading the two entries is row C255 (4afcc1e)
+- engine: ARC-09-C254, red: the Stop hook reads the corpus tree only when it must (ed656be)
+- docs: ARC-09-C254, the changelog, the migration wording and the plan row (76fad98)
+- tests: ARC-09-C254, red: the turn report's answer includes the correction line (069a29d)
+- engine: ARC-09-C254, red: B07 writes the two hook entries, and they run (72188ab)
+- engine: ARC-09-C254, red: a dead citation that resolves is sent back once (412078d)
+- engine: ARC-09-C254, red: a Read of a missing corpus page is told the page meant (14f9ef7)
+- engine: ARC-09-C254, red: the resolver names the page a corpus link stands for (9fe4898)
+- plan: ARC-09-C253, the row ends with its closing pipe (66fc2d9)
+- plan: ARC-09-C251, the row ends with its closing pipe (9d3f550)
+- plan: ARC-09-C252, the row, (a) BUILT in #551; (b) stays proposed (eae2465)
+- changelog: ARC-09-C252, a finding's copy is printed in the reply, unfenced (26de882)
+- tests: ARC-09-C252, T-37 fails a fenced or pointed-to copy; the report counts it (7ca655e)
+- tests: ARC-09-C252, red: the finding copy is printed in the reply, unfenced (daa8df7)
+- plan: ARC-09-C253, the row, BUILT in #550 (4d3cf86)
+- docs: ARC-09-C253, CONTRIBUTING says an unanswered E-28 is not compared (7e65d84)
+- doctor: ARC-09-C253, red: an E-28 that got no answer is not a difference (7c38a79)
+- plan: ARC-09-C251, the C221 row counts four residuals, not six (bd5f201)
+- plan: ARC-09-C251, the row, BUILT in #549; the C242 row names the role (7b37afc)
+- changelog: ARC-09-C251, a finding masks the words a long engagement name begins (efc2971)
+- engine: ARC-09-C251, red: a name of four letters or more masks the words it begins (29e0c21)
+- plan: ARC-09-C253, the CI snapshot compare goes red when origin does not answer (04bcfcd)
+- plan: ARC-09-C252, the finding copy printed in the reply; Status has two rules (85afb2c)
+- plan: ARC-09-C251, five follow-ups from the C242 review, measured on 54f527b3 (f23cd0d)
+- tests: ARC-09-C243, T-38 fails an offer to run --fix; the row records the sittings (d5e0e6c)
+- plan: ARC-09-C243, the row says T-38 is /snowarch status with E-11 failing (e7664b6)
+- tests: ARC-09-C243, T-38 runs /snowarch status with E-11 failing and a control (3d28211)
+- tests: ARC-09-C243, red: T-38 runs /snowarch status with one failing check (58c731d)
+- doctor: ARC-09-C242, the redaction test expects the username's domain masked (f5eaad3)
+- plan: ARC-09-C242, the row names the new warning wording, the domain mask, the pins (7c104c9)
+- docs: ARC-09-C242, the architecture page lists an address's domain among the masks (a368f87)
+- changelog: ARC-09-C242, the JSON masks an address's domain as <domain> (33fc332)
+- doctor: ARC-09-C242, red: a username's domain is masked in the JSON; rule pins (b501119)
+- engine: ARC-09-C242, red: a warning names no value, no store name or alias printed (7d7af70)
+- plan: ARC-09-C243, the row names the third exit 1 and the new check counts (5b6d199)
+- changelog: ARC-09-C243, the exit-1 line names the command's own failure too (93c45e6)
+- tests: ARC-09-C243, T-37 keeps its fail signal for a question after turn 3 (315c098)
+- tests: ARC-09-C243, red: step 3 names a third exit 1; T-37 keeps its turn-3 signal (2914f52)
+- plan: ARC-09-C243, the row, BUILT in #547 for 2.2.5 rc.1 (524f72e)
+- plan: ARC-09-C242, the row, BUILT in #546 for 2.2.5 rc.1 (ed8cfe3)
+- tests: ARC-09-C242, the guard leaves tests/doctor; the cases derive the launcher (47a57da)
+- changelog: ARC-09-C243, status --help and the Status skill say what exit 1 means (a21852b)
+- tests: ARC-09-C243, T-37 asks if the copy is safe; T-38 is a Status with a FAIL (a089da6)
+- tests: ARC-09-C243, red: T-38 is a no-licence case with Bash for status and doctor (888fa72)
+- tests: ARC-09-C243, red: the Status and finding text, --help and the template (c9347a5)
+- changelog: ARC-09-C242, --json masks names at a boundary, and the C200 line is exact (17a7c4a)
+- doctor: ARC-09-C242, red: a store stem masks whole names, and at a token boundary (3b14ea0)
+- engine: ARC-09-C242, red: a stem names the organisation, a store host is masked (cd6bf22)
+- doctor: ARC-09-C242, the maskForJson call-site guard reads every lib module (a955bb6)
+- tests: ARC-09-C250, the CLAUDE.md guard lists every sentence of CLAUDE.md at develop (f3bdfed)
+- tests: ARC-09-C250, red: the CLAUDE.md guard names a rewritten or shortened sentence (9f1fa22)
+- plan: ARC-09-C241, the row, BUILT in #545 for 2.2.5 rc.1 (bb65698)
+- changelog: ARC-09-C241, the C195 line says the plan step can take up to 30 seconds (9e8650d)
+- tests: ARC-09-C241, red: U4 plans in one worktree, cleaned before the fallback (d906e73)
+- plan: ARC-09-C240, the row, BUILT in #544 for 2.2.5 rc.1 (2ef3fba)
+- changelog: ARC-09-C240, both changelogs: URL credentials are never quoted back (be8a3fb)
+- server: ARC-09-C240, red: a URL with credentials in it is never quoted back (3e0bb00)
+- ARC-09-C250, the sparse sizes follow the 24-area set, from docs-real run 40131491002 (6b8592c)
+- ARC-09-C244, the BOM paragraph names no test file, because PLATFORM-NOTES ships (5410d85)
+- plan: ARC-09-C244, the row names the BOM rule PLATFORM-NOTES now carries (#542) (9cf7b64)
+- ARC-09-C244, PLATFORM-NOTES says every file bootstrap.ps1 dot-sources needs a BOM (361b361)
+- plan: ARC-09-C239, the row records the replays, the probe and the miss cost (2c49e3f)
+- plan: ARC-09-C239 is BUILT in #541, and ARC-09-C244 is DELIVERED with its battery (33c43fd)
+- ci: ARC-09-C250, the sparse cap's comment names the cone it measures now (d59c911)
+- changelog: ARC-09-C250, `--docs sparse` holds 24 areas instead of 20 (9760b81)
+- ARC-09-C250, CLAUDE.md teaches the escape-safe search and names the corpus map (70280c9)
+- tests: ARC-09-C250, the CLAUDE.md byte cap rises to 20,400 for W1 and W2 (ec624e9)
+- changelog: ARC-09-C250, the F2b line covers the Technical Designer's worked example (bed4316)
+- changelog: ARC-09-C250, the HRSD gateway no longer gives employees the HR agent role (065ecde)
+- tests: ARC-09-C244, the restored page is compared with git's own checkout bytes (f388fc6)
+- tests: ARC-09-C244, the restored page is compared with line endings set aside (a91731e)
+- ARC-09-C250, the user guide names the banner's Docs on disk line (d233355)
+- ci: ARC-09-C250, the docs bump syncs the whole corpus and writes the map with the pin (f038158)
+- tests: ARC-09-C250, red: the banner line is labelled "Docs on disk" (OQ-C250-6) (1ec66e3)
+- tests: ARC-09-C250, red: the banner names the corpus areas not installed (74e47f7)
+- tests: ARC-09-C250, red: the corpus map, one row per area, from the whole corpus (19022b8)
+- tests: ARC-09-C250, red: instruction files teach searches that find what is there (cd8e8c1)
+- tests: ARC-09-C250, the guard: nothing that works is removed from CLAUDE.md (65fa9bd)
+- plan: ARC-09-C239, BUILT for 2.2.5 rc.1, pushed after #540 merges (c850fdd)
+- changelog: ARC-09-C239, the citation check's final shape, and the quoted banner (f9972cf)
+- tests: ARC-09-C244, the missing-corpus remedy is asserted as a whole line (d7e57ff)
+- tests: ARC-09-C239, red: a linked checkout path, and a gitlink to nowhere (df2c9bb)
+- tests: ARC-09-C239, red: the citation hook calls no real page dead and runs anywhere (985ee05)
+- plan: ARC-09-C244, acceptance step 4.3 expects the missing-corpus remedy as printed (f8b83af)
+- tests: ARC-09-C244, red: no missing-corpus remedy offers --docs sparse (e01e30c)
+- changelog: ARC-09-C244, a Windows install without Node fetches the whole corpus (209eb59)
+- ARC-09-C244, the install page gives the move's measured time, 7 to 14 seconds on CI (c9a1fe8)
+- tests: ARC-09-C244, red: under the marker, a sparse run sets the cone again (f2f91a7)
+- plan: ARC-09-C244, BUILT for 2.2.5 rc.1; the merge waits for the battery (ee0dabe)
+- changelog: ARC-09-C244, the whole corpus by default, with the move's measured cost (5bafedb)
+- tests: ARC-09-C244, red: every file bootstrap.ps1 dot-sources carries a UTF-8 BOM (71f3e7f)
+- tests: ARC-09-C244, red: a sparse run under the marker puts the debris back too (afa6446)
+- tests: ARC-09-C244, red: the move to the whole corpus retries and resumes if cut off (0ba32fb)
+- tests: ARC-09-C244, the real repository's corpus shape follows its docs mode (ffbf834)
+- ARC-09-C244, the install page says the move to 2.2.5 takes about 10-15 seconds (31b8fc5)
+- tests: ARC-09-C244, the install figures' attribution reads across a line break (4203ecc)
+- ARC-09-C244, the install paragraph keeps the --docs sparse span on one line (f957fc5)
+- ARC-09-C244, the install page and the status samples show the whole corpus (2e6a703)
+- tests: ARC-09-C244, red: the whole corpus by default; a sparse install moves once (31627aa)
+- plan: ARC-09-C245, BUILT for 2.2.5, the capabilities read keeps a switched instance (4491f1a)
+- ci: ARC-09-C244, assert-docs records a failed docs verify and keeps measuring (bdacd62)
+- changelog: ARC-09-C245, a switch holds through the capabilities read (809515f)
+- server: ARC-09-C245, red: a switch holds through the capabilities read (a53c95e)
+- ci: ARC-09-C244, docs-real: full, sparse and switch per OS, and a long Windows root (438a687)
+- tests: ARC-09-C202, red: each case also runs with a path TypeScript folds (8867b8f)
+- plan: ARC-09-C202, BUILT for 2.2.5, the start reader reads names where written (e03711e)
+- plan: ARC-09-C224, BUILT for 2.2.5, the install page names the Windows clone line (aa25eb9)
+- tests: ARC-09-C224, the install page's cap moves to 317 for the clone-line note (f7275cf)
+- tests: ARC-09-C202, red: a name is read where it is written, not file-wide (d1befd0)
+- changelog: ARC-09-C224, the install page's note on the Windows clone line (fd18eb5)
+- ARC-09-C224, the install page says the Windows clone line is harmless (ceec8c7)
+- plan: ARC-09-C223, BUILT for 2.2.5, a bare host is proposed as https://<host> (e00f6d9)
+- changelog: ARC-09-C223, both changelogs name the bare host and the --yes line (f99ae75)
+- server: ARC-09-C223, red: a bare host is proposed, and --yes prints the URL used (44879b1)
+- plan: ARC-09-C195, BUILT for 2.2.5, the target's own runner plans the upgrade (f334fc9)
+- plan: ARC-09-C200, BUILT for 2.2.5, option B with the doctor's own key list (3433b0b)
+- tests: ARC-09-C195, e2e: a target that adds a B07 input has B07 in the plan (7fc9823)
+- ci: ARC-09-C200, the launcher audit's baseline carries the new U7 cases' remedies (c8635dc)
+- changelog: ARC-09-C195, the upgrade's plan is the new release's own answer (e032c7c)
+- tests: ARC-09-C195, red: U4 asks the target's own planSteps, read-only, within 30 s (c963420)
+- changelog: ARC-09-C200, the upgrade's doctor lines take the new release's titles (b24a915)
+- tests: ARC-09-C200, red: the doctor's cache promises the modeLine U7 reads (e9dcf63)
+- tests: ARC-09-C200, red: U7 prints the target's checks; the cache lends only words (c118fd6)
+- plan: ARC-09-C231, BUILT for 2.2.5, probed and replayed (b14f658)
+- changelog: ARC-09-C231, the citation check after a write under clients/ (a54ab37)
+- ARC-09-C231, the user docs name the citation check beside the session banner (1e4e446)
+- tests: ARC-09-C231, red: the citation hook is registered, read and re-run (970834d)
+- tests: ARC-09-C231, red: a dead citation under clients/ goes back to the model (df833b0)
+- plan: ARC-09-C197, BUILT for 2.2.5, red first, with the release policy (879347b)
+- changelog: ARC-09-C197, the upgrade names a file in a managed folder before the move (5ddd678)
+- tests: ARC-09-C197, red: the U4 refusal end to end; U5 pinned by a sparse file (d825c01)
+- tests: ARC-09-C197, red: U4 names the files U5 would call extra (1d365e1)
+- plan: ARC-09-C229, BUILT for 2.2.5, on its pins and the corpus (0764cd6)
+- changelog: ARC-09-C229, both changelogs name the 2010-compatibility limit (e8ea399)
+- server: ARC-09-C229, red: the pin takes the description that says why (cadb26a)
+- plan: ARC-09-C225, BUILT for 2.2.5, measured by a recorded-answer replay (366ed3a)
+- plan: ARC-09-C228, BUILT for 2.2.5, measured; the C221 row's latent case is C227 (2634b8e)
+- changelog: ARC-09-C225, both changelogs take the measured first clause (bc7ee7d)
+- server: ARC-09-C225, red: the pin takes the measured wording of the first clause (3581572)
+- changelog: ARC-09-C229, the active Task SLA list in both changelogs (97099e0)
+- server: ARC-09-C229, red: the query snow_cat_active_slas_index sends (1ca8d42)
+- changelog: ARC-09-C228, the ITSM gateway names a finished task SLA's stored stage (d4ded2c)
+- tests: ARC-09-C228, red: the roster's task_sla stage values against PN-25 (519be02)
+- ARC-09-C228, PN-25, a finished task SLA's stage is stored as `completed` (ab703bf)
+- changelog: ARC-09-C225, the display_value rule in the server and the user changelog (1ba11ad)
+- server: ARC-09-C225, red: the display_value description is the owner's rule (03ed1eb)
+- plan: ARC-09-C222, BUILT for 2.2.5, split by area at 80,000 bytes (df36ac0)
+- ARC-09-C222, the split plan the size check's message names (34e2c07)
+- tests: ARC-09-C222, the size check: bytes with LF line ends, split at 80,000 (4456dec)
+- tests: ARC-09-C222, red: the platform notes are split by area at 80,000 bytes (47a4b2f)
+- plan: ARC-09-C221, BUILT for 2.2.5, with T-37's two runs (4ec8f60)
+- tests: ARC-09-C221, T-37's criteria read what a clean sitting does (321c50d)
+- tests: ARC-09-C221, T-37, /snowarch finding in three turns, with its runner policy (90bc51a)
+- changelog: ARC-09-C221, /snowarch finding under Added (500419b)
+- ARC-09-C221, the user guide's Reporting a finding section (764ffe7)
+- doctor: ARC-09-C221, red: doctor --json masks the store's own hosts by value (aeebfa3)
+- tests: ARC-09-C221, red: the credential tier is reported apart; plain-word secrets (799315b)
+- tests: ARC-09-C221, red: a URL that ends a clause keeps its punctuation (399be73)
+- tests: ARC-09-C221, red: /snowarch finding masks a finding before it leaves (31daebb)
+- changelog: ARC-09-C227, the changelog commit's release line, narrowed too (fa029b0)
+- changelog: ARC-09-C227, the fix's release line names ServiceNow-hosted URLs (3d7a90e)
+- plan: ARC-09-C227, the row, BUILT for 2.2.5 (ba25791)
+- changelog: ARC-09-C227, the Notes line and the Fixed bullet name ServiceNow-hosted instance URLs (19930f9)
+- doctor: ARC-09-C227, red: doctor --json masks only the first instance host (56e87cb)
+- plan: ARC-09, the 2.2.5 rows, opened as the owner's plan orders them (aaef64e)
+- plan: ARC-09-C220, the row, BUILT for 2.2.5 (cb921c0)
+- plan: ARC-09 rows shipped in 2.2.4, release commit 67fcb85 (35902ad)
+- server: ARC-09-C220, red: the licence fixtures' repositories keep maintenance on (6faad28)
+- tests: ARC-09-C220, red: the server's TypeScript fixtures run a raw git init (fbbf9ee)
+- docs: bump ServiceNowDocs to c10276e (2026-10-16) (62c5423)
+
+Tag v2.2.5 · contract 6634d8b69d53 · docs-pin c10276e
+
 ## 2.2.4 — 2026-10-23
 
 ### Notes

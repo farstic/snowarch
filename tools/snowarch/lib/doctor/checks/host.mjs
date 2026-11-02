@@ -21,10 +21,49 @@ import { loadStateOrReason } from '../../state.mjs';
 import { remedyFor } from '../../../../../packages/contract/lib/contract.mjs';
 import { NO_PROMPT_ENV } from '../../spawn-env.mjs';
 import { TIMED_OUT } from '../../probe-net.mjs';
+import { DNS_BUDGET, lookupHost } from '../../dns-probe.mjs';
 import { defineCheck } from '../registry.mjs';
 
 import { fail, ok, skip, warn } from './result.mjs';
 import { spellFor } from '../spell.mjs';
+
+/** How long E-28 lets `git ls-remote` take. The lookup before it has DNS_BUDGET of its own (ARC-09-C261). */
+export const REMOTE_BUDGET_MS = 15_000;
+
+/**
+ * ARC-09-C261 — the host of `remote`'s http(s) URL when looking it up before the git call is meaningful, else null. A lookup is left out,
+ * and E-28 behaves as it always did, wherever it would be false or meaningless: no URL; a local path, a file, ssh, scp-style or git
+ * URL (ssh has its own configuration and ProxyCommand); an IP literal; and whenever ANY proxy may apply, because a proxy resolves names
+ * itself and a lookup that fails or hangs on this machine would then be a false "DNS did not answer", which is worse than the old
+ * message. So NO_PROXY is not read (a hand-written matcher is a new way to be wrong): HTTPS_PROXY, HTTP_PROXY or ALL_PROXY in either
+ * case skips the lookup whatever NO_PROXY says, and so does what git itself answers for this URL (`--get-urlmatch http.proxy`, which
+ * covers `http.proxy` and `http.<url>.proxy`) and for `remote.<name>.proxy`. Git is asked about the URL without its user, password, query
+ * and fragment, so no credential of the origin is on a command line (ARC-09-C240); the cost is that a section pinned to a user no longer
+ * matches, so one more lookup runs, and its worst case is a warning that already names the proxy settings.
+ */
+function lookupTarget(ctx, remote) {
+  const run = ctx.exec ?? execFileSync;
+  const env = { ...(ctx.env ?? process.env), ...NO_PROMPT_ENV };
+  const ask = (args) => {
+    // git exits 1 for a key that is not set, which `execFileSync` raises: that is an empty answer, not a failure.
+    try { return String(run('git', args, { cwd: ctx.root, encoding: 'utf8', stdio: 'pipe', timeout: 5_000, env }) ?? '').trim(); } catch { return ''; }
+  };
+  const raw = ask(['remote', 'get-url', remote]);
+  let url;
+  try { url = new URL(raw); } catch { return null; }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+  // An IP literal needs no lookup: the URL parser has normalised a numeric host to a dotted quad, and an IPv6 host keeps its brackets.
+  const host = url.hostname;
+  if (host === '' || host.startsWith('[') || /^\d+(?:\.\d+){3}$/.test(host)) return null;
+  const inEnv = ctx.env ?? process.env;
+  if (['HTTPS_PROXY', 'HTTP_PROXY', 'ALL_PROXY'].some((name) => inEnv[name] || inEnv[name.toLowerCase()])) return null;
+  // git matches `http.<url>.proxy` on scheme, host, port and path, and on the user only when a section names one, so nothing it needs is lost
+  // by asking about the origin without the parts that can carry a credential.
+  url.username = ''; url.password = ''; url.search = ''; url.hash = '';
+  if (ask(['config', '--get-urlmatch', 'http.proxy', url.href])) return null;
+  if (ask(['config', '--get', `remote.${remote}.proxy`])) return null;
+  return host;
+}
 
 /** The four variables, in both spellings. POSIX tools read either; Windows sets the upper form. */
 export const PROXY_VARS = Object.freeze([
@@ -396,7 +435,17 @@ export function hostChecks() {
         const remote = 'origin';
         // ARC-09-C190 — with prompts off, as `upgrade`'s fetch: an origin that wants a credential no helper holds
         // answers at once, and never with a prompt the doctor's reader cannot see.
-        const budget = 15_000;
+        const budget = REMOTE_BUDGET_MS;
+        // ARC-09-C261 — A RESOLVER THAT DOES NOT ANSWER IS NOT A REMOTE THAT DOES NOT. The name is looked up first, in a child killed at its own
+        // short budget (dns-probe.mjs), and only a lookup that did not answer in it changes anything: git is not asked, and the warning names
+        // DNS. An answer, a host or "no such host", and any other result go on to git, so every other text here is as it was.
+        const dnsHost = lookupTarget(ctx, remote);
+        const dnsAnswered = dnsHost === null ? { ok: true } : (ctx.lookup ?? lookupHost)(dnsHost, { timeoutMs: DNS_BUDGET });
+        if (dnsAnswered.timedOut) {
+          return warn(`DNS did not answer for ${dnsHost} within ${DNS_BUDGET / 1000} s — check the network or the DNS servers this machine uses; `
+            + 'if you are behind a corporate proxy, git reads HTTPS_PROXY / http.proxy (docs/TROUBLESHOOTING.md#proxy_unreachable)',
+            { data: { remote, refreshed: false } });
+        }
         let listed;
         try {
           listed = (ctx.exec ?? execFileSync)('git',

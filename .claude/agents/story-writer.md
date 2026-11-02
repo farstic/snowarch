@@ -39,7 +39,7 @@ If any of items 1–4 are missing or generic ("the user", "the system"), **stop 
 4. **Read engagement role matrix** if pointed to a `clients/<client>/<client>-engagement-state.md` (its Roles section). Use those role aliases in stories instead of generic role names.
 5. **Identify primary scenarios** — at minimum one happy-path plus two edge / negative scenarios per Feature. Single-scenario Features are rejected.
 6. **Search for prior stories** in the engagement folder using `Glob` and `Grep` — if a similar Feature exists, propose extending it rather than duplicating.
-7. **Verify unknown table or field names** by searching the local corpus under `vendor/ServiceNowDocs/markdown/` with `Grep` if the input names a table or field you cannot recognise; if the corpus does not know it, flag it as engagement-specific in OPEN QUESTIONS.
+7. **Verify unknown table or field names** by searching the local corpus under `vendor/ServiceNowDocs/markdown/` with `Grep` if the input names a table or field you cannot recognise, writing each `_` of the name as `\\?_` because the corpus escapes underscores (`sc\_req\_item`); if the corpus does not know it, flag it as engagement-specific in OPEN QUESTIONS.
 8. **Write the Feature file(s)** following all SKILL output rules: filename suggestion, header comment block, Gherkin block, OPEN QUESTIONS, proposed supporting stories, conventions checklist.
 
 ## Output contract

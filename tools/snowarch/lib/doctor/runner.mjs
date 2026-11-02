@@ -23,7 +23,10 @@ import { isServerCheck, SECTIONS } from './registry.mjs';
 import { spellings } from '../launcher-spelling.mjs';
 
 export const DEFAULT_TIMEOUT_MS = 15_000;
-export const NETWORK_TIMEOUT_MS = 20_000;
+// ARC-09-C261: E-28, the one network check, asks DNS for up to 5 s and then the remote for up to 15 s, in synchronous calls one after the
+// other. A timer cannot fire during them, but the first `await` after them lets it, so the budget holds both and some to spare: it was
+// 20 s, which a resolver answering at 4.9 s and a silent remote would have exceeded. tools/snowarch/tests/dns-probe.test.mjs holds the sum.
+export const NETWORK_TIMEOUT_MS = 25_000;
 
 /** `--section a,b`. `server` means every `SV-` check, whatever section they declare. */
 export function selectSections(requested) {
@@ -69,7 +72,11 @@ export function planRun(checks, { quick = false, noNetwork = false, sections = n
   return { selected, skipped };
 }
 
-const timeoutFor = (check) => (check.network ? NETWORK_TIMEOUT_MS : DEFAULT_TIMEOUT_MS);
+/** The budget a check gets: its network one when it declares `network`, else the default (the tests read it, and the architecture page quotes both). */
+export const timeoutFor = (check) => (check.network ? NETWORK_TIMEOUT_MS : DEFAULT_TIMEOUT_MS);
+
+/** What a check that hangs is reported as, built from its budget so that the sentence and the budget cannot disagree ("timed out after 25 s"). */
+export const timedOutText = (budgetMs) => `timed out after ${Math.round(budgetMs / 1000)} s`;
 
 /** One check, run defensively: never throws, always timed, always shaped like a CheckResult. */
 async function runOne(check, ctx, now, budgetFor = timeoutFor) {
@@ -85,7 +92,7 @@ async function runOne(check, ctx, now, budgetFor = timeoutFor) {
         // once every check has answered" — which the `clearTimeout` already guaranteed — and the price
         // was a budget the event loop could not see: a check pending on nothing ended the whole doctor
         // in exit 13 before its budget fired, with no report at all.
-        timer = setTimeout(() => reject(new Error(`timed out after ${Math.round(budget / 1000)} s`)),
+        timer = setTimeout(() => reject(new Error(timedOutText(budget))),
           budget);
       }),
     ]);

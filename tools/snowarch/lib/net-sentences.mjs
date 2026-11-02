@@ -11,6 +11,8 @@
 // What legitimately differs is the KNOB. When git fails, the fix is git's CA setting; when Node
 // fails, it is Node's. So the TLS sentence is parameterised by which tool is speaking and names the
 // other one second — both knobs, in the order that helps. Everything else is byte-identical.
+import { MB, megabytes } from './size.mjs';
+
 export const TOOL = Object.freeze({ git: 'git', node: 'node' });
 
 /**
@@ -71,8 +73,19 @@ export function tlsIntercepted({ tool = TOOL.git } = {}) {
       + 'NODE_EXTRA_CA_CERTS (docs/TROUBLESHOOTING.md)';
 }
 
-export const noDiskSpace =
-  'insufficient disk space: need ~400 MB free (~700 MB for --mode full)';
+/**
+ * ARC-09-C260 — what a full disk costs a docs sync, said as what the corpus takes: a failed sync may have left part of it on disk, and
+ * a figure for "free space needed" is one nobody measured. The whole corpus is the default (ARC-09-C244) and a sparse checkout the other
+ * answer; both are tree plus `.git` on disk, measured by docs-real on all three platforms (run 41063258542, develop ff2223dd, pin
+ * c10276e, 2026-10-30: whole 484, 491 and 489 MB, sparse 362, 363 and 367), which is what the install page quotes, and
+ * tools/snowarch/tests/disk-sentences.test.mjs holds the two within 10 MB of the page's. It names no flag, so it is as true in
+ * `docs sync` as in the bootstrap's B02. The npm sentence is npm-failures.mjs's own: that failure fills a different tree.
+ */
+export const CORPUS_WHOLE = 490 * MB;
+export const CORPUS_SPARSE = 365 * MB;
+export const noDiskSpaceDocs =
+  `insufficient disk space: the whole documentation (the default) takes about ${megabytes(CORPUS_WHOLE)} MB on disk, `
+  + `a sparse checkout about ${megabytes(CORPUS_SPARSE)} MB`;
 
 /**
  * ARC-07-C31 — this one takes a `cli` STRING and guards it locally, which is the exception in this
@@ -83,7 +96,8 @@ export const noDiskSpace =
  * copies this file alone into a temp tree — with only `remedies.json` and `text.json` beside it —
  * and runs `scripts/gen-launcher-text.mjs` against it, which imports this module by path. An import
  * of a file that is not copied would be a missing module on exactly that path, and the launcher
- * generator is what prints these sentences in a shell that has no Node.
+ * generator is what prints these sentences in a shell that has no Node. The one import this module has
+ * is `size.mjs` (ARC-09-C260), which imports nothing and is copied along.
  */
 export const unfetchablePin = (pin, cli) => {
   if (typeof cli !== 'string' || cli === '') {

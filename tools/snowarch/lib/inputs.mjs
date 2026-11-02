@@ -35,6 +35,7 @@ import { join } from 'node:path';
 
 import { contractSha } from './config.mjs';
 import { gitlink as headGitlink } from './git.mjs';
+import { hookEntry } from './settings-local.mjs';
 import { ABSENT, FILE, TEXT, hashInputs } from './steps/inputs.mjs';
 
 export { ABSENT, FILE, TEXT, hashInputs };
@@ -211,12 +212,16 @@ export const INPUTS = Object.freeze({
       { kind: 'literal', ref: 'node present', why: 'no Node means the hook is disabled' },
       { kind: 'literal', ref: 'hooks disabled', why: 'S-05: the launcher may have turned them off' },
       { kind: 'literal', ref: 'registration', why: 'project or user changes what is written' },
+      // ARC-09-C231 — the hook entries themselves, so a release that changes them (as this one adds the citation
+      // check) leaves B07 stale and the upgrade's U6 writes them once. Derived, so it cannot drift from the writer.
+      { kind: 'literal', ref: 'hooks written', why: 'the hook entries this release writes' },
     ],
     resolve: (ctx) => [
       TEXT(`mode=${ctx.mode}`),
       TEXT(`node=${ctx.node.present ? 'yes' : 'no'}`),
       TEXT(`hooks=${ctx.state.hooksDisabledByBootstrap ? 'disabled' : 'default'}`),
       TEXT(`registration=${ctx.state.registration}`),
+      TEXT(`hooks written=${JSON.stringify(hookEntry())}`),
     ],
   },
 

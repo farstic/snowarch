@@ -50,7 +50,10 @@ You ground every factual claim about baseline CSM behaviour in the Australia bra
 - `markdown/customer-service-management/configure-csm-consumers.md` — consumer model
 - `markdown/customer-service-management/agent-exp.md` — CRM Workspace
 - `markdown/customer-service-management/self-service-options-csm-customers.md` — Customer Service Portal
-- `markdown/now-platform/index.md` — Now Platform core (Glide, ACLs, audit, business rules)
+- `markdown/api-reference/server-api-reference/` — Glide server APIs
+- `markdown/platform-security/access-control/` — ACLs
+- `markdown/application-development/business-rules-and-script-includes.md` — business rules and script includes
+- `markdown/platform-security/c_DiffBtwnAuditHistSets.md` — audit and history sets
 - `markdown/build-workflows/index.md` — Flow Designer behaviour
 
 **Citation format:** `(citation: markdown/customer-service-management/<file>.md)` inline in every Part. Always the full path from `markdown/`, never a bare file name: a reviewer resolves the page by its path.
@@ -67,9 +70,9 @@ A request that NAMES a custom object can never be Verdict A, however well baseli
 A is what lets a builder be dispatched, and a named custom object must not reach a builder without
 that separate approval.
 
-**Grep the corpus with escaped underscores.** The published markdown escapes them, so a table name
+**Grep the corpus escape-safe.** The published markdown escapes them, so a table name
 is written `sn\_customerservice\_escalation` and a plain `grep sn_customerservice_escalation` over
-`vendor/ServiceNowDocs/` returns **nothing at all**. Search for `sn\_customerservice\_escalation`
+`vendor/ServiceNowDocs/` returns **nothing at all**. Search for `sn\\?_customerservice\\?_escalation`
 (or drop the middle of the name and match `escalation`) before concluding a table is absent. This is
 not a footnote: this skill asserted for five paragraphs that the escalation tables were unavailable
 in Australia, and the only evidence for it was a search that could not have found them.
@@ -134,7 +137,7 @@ For each process named in the request:
 
 ## Part 2 — Data Model Alignment
 
-[Ground an Envelope directly: read the gateway skill, then the corpus pages for the constructs in play — eight by default; past that, say which construct is still unverified and what you will open, then continue. Parallel readers for grounding only when the user has enabled Ultracode or max effort for the session, said so in the answer; never otherwise. Under that opt-in, before the first workflow say how many workflows you will run and roughly how long, print one line as each completes, and run a second review round only when the first returned a material finding — one that changed a verdict, a table, a citation or an OPEN QUESTION; otherwise finalize and say so: "review round 1: no material finding, finalizing". A name neither printed in the skill nor opened in this turn carries "not documented in the bundled corpus — verify on the instance" and no citation; what the corpus does not settle becomes an OPEN QUESTION.]
+[Ground an Envelope directly: read the gateway skill, then the corpus pages for the constructs in play — twelve by default; while pages remain, open a construct's page before you call it unverified; past that, say which construct is still unverified and what you will open, then continue. Parallel readers for grounding only when the user has enabled Ultracode or max effort for the session, said so in the answer; never otherwise. Under that opt-in, before the first workflow say how many workflows you will run and roughly how long, print one line as each completes, and run a second review round only when the first returned a material finding — one that changed a verdict, a table, a citation or an OPEN QUESTION; otherwise finalize and say so: "review round 1: no material finding, finalizing". A name neither printed in the skill nor opened in this turn carries "not documented in the bundled corpus — verify on the instance" and no citation; what the corpus does not settle becomes an OPEN QUESTION.]
 
 [Live mode, read what the corpus cannot settle: in `live` mode, before the Envelope is final, the Architect reads each "verify on the instance" item that is an instance fact — choice values, fields and their types, table parents, installed apps and plugins, assignment rules and SLA definitions, workspace pages — with read-only calls (`snow_core_records_query`, `snow_disco_table_discover`), eight reads per Envelope by default; past that, say which items remain unread and continue. Under the Ultracode or max-effort opt-in there is no cap: the Architect makes every read itself, since sub-agents make no MCP call, and declares the count. A resolved item becomes a fact cited "measured on instance <label>, <date>", and the raw read goes in `<envelope>-readings.md` beside the Envelope, with the instance label and the date, never a URL or an account. A read refused for privileges leaves its item an OPEN QUESTION with the reason, and no other tool is tried; an authentication or connection error stops the reads; under `LICENCE_NOT_VALID` none run; an empty one is cited "none found on <label>", never "absent". A read whose answer says `truncated: true` is read to its end within the budget — its next pages, counted against the eight — or cited with what it returned and its `total`. What is not an instance fact — the wording a customer sees, what the business wants, who owns a step — stays an OPEN QUESTION. In `design-only` nothing changes: no call is made.]
 
@@ -170,7 +173,7 @@ For each table:
 - **Verdict B: PROCEED — dispatch to Technical Designer with constraints.** Technical Designer receives this envelope as the dispatch input, for the new field Part 3 named. Parts 1–3 become hard constraints on the design.
 - **Verdict C: HALT — §1.1 custom-object proposal required.** Wait for the user's decision on the Verdict C proposal before dispatching anyone.
 - **Builders the request crosses:** the Integration Specialist first, for the connection, spoke, alias and auth, then the Flow Designer Specialist for the orchestration, then the Developer for any script; the Architect proposes them in that order (CLAUDE.md §7), and an outbound or inbound integration among them triggers the Security & GRC consult (§3.1). This Part 4 is an input to the Architect's routing, never the routing.
-- **Co-firing gateways:** A co-firing gateway fires in this turn too: load its skill, write its five-part Envelope beside this one, and reconcile them before the turn ends — the shared constructs named once, each layer's owner stated, any one Verdict C halting all of them. Each Envelope cites as a single-gateway turn does, `(citation: markdown/<area>/<page>.md)` on every baseline claim, never a bare file name. Each Envelope has its own grounding budget, eight pages by default, declared per Envelope in the answer. A co-firing gateway named with its Envelope not yet written did not fire. In each co-fired Envelope, Part 3 states the verdict in full: A names the baseline construct that covers the need and B the baseline construct it extends, each with its citation; C is the halt.
+- **Co-firing gateways:** A co-firing gateway fires in this turn too: load its skill, write its five-part Envelope beside this one, and reconcile them before the turn ends — the shared constructs named once, each layer's owner stated, any one Verdict C halting all of them. Each Envelope cites as a single-gateway turn does, `(citation: markdown/<area>/<page>.md)` on every baseline claim, never a bare file name. Each Envelope has its own grounding budget, twelve pages by default, not shared with another Envelope, declared per Envelope in the answer. A co-firing gateway named with its Envelope not yet written did not fire. In each co-fired Envelope, Part 3 states the verdict in full: A names the baseline construct that covers the need and B the baseline construct it extends, each with its citation; C is the halt.
 
 ## Part 5 — Anti-Patterns to Block
 [Domain-specific anti-patterns. Each anti-pattern is a one-sentence "do not do X, do Y instead" with a citation.]
@@ -196,11 +199,11 @@ For each table:
 | Resolved | 6 | Closed (auto), Open (reopen) | sn_customerservice_agent |
 | Closed | 3 | (terminal) | sn_customerservice_manager |
 
-*(citation: `markdown/api-reference/rest-apis/case-api.md` — the five values its `state` field lists. Any further state, such as a cancelled or awaiting-problem state, is not documented in the bundled corpus — verify on the instance.)*
+*(citation: `markdown/api-reference/rest-apis/case-api.md` — the five values its `state` field lists.)* The Case form reference lists a sixth customer service case state, Canceled, without its integer value *(citation: `markdown/customer-service-management/r_CustomerServiceCaseForm.md`)*. With the Case lines and workflows application, a case for an item with multiple lines, such as an order, is created in a Draft state, moves to New when it is submitted and from New to Work in Progress when an agent selects **Assign to me**, and agents can cancel it only in the Draft state *(citation: `markdown/customer-service-management/csm-case-lines-states.md`)*. Any further state of the base case, such as an awaiting-problem state, is not documented in the bundled corpus — verify on the instance.
 
 **Related tables:** `task_sla`, `sn_customerservice_task`, `sys_journal_field`, `sys_history_set`, `sn_shn_notes`.
 
-**Baseline notifications:** the case notifications a customer can switch on or off from the business portal — "Case opened for customer", "Case commented for customer", "Case resolved for customer", "Case closed for customer", "Case escalated for customer" and "Case assigned to a new group" *(citation: `markdown/customer-service-management/c_Business-portal-NotifPref.md`)*. A notification on assignment to an agent, on reopening, or while a case awaits the customer's information is not documented in the bundled corpus — verify on the instance.
+**Baseline notifications:** the case notifications a customer can switch on or off from the business portal — "Case opened for customer", "Case commented for customer", "Case resolved for customer", "Case closed for customer", "Case escalated for customer" and "Case assigned to a new group" *(citation: `markdown/customer-service-management/c_Business-portal-NotifPref.md`)*. When someone else assigns a case to an agent, the Customer Service mobile application notifies that agent *(citation: `markdown/customer-service-management/customer-service-mobile-overview.md`)*, and the Business Portal lists the notifications sent for cases awaiting information *(citation: `markdown/customer-service-management/use-the-business-portal.md`)*. A notification on reopening is not documented in the bundled corpus — verify on the instance.
 
 **Role gates:** `sn_customerservice_agent` for write; `sn_customerservice_manager` for terminal-state transitions; `sn_customerservice.partner` for partner-managed cases.
 
@@ -230,7 +233,7 @@ The CSM customer model has three core tables:
 
 1. The fields considered: Account, Consumer, Product, Asset, Contract and Case Channel (plus Sold Product and Install Base when Proactive Customer Service Operations is active).
 2. Each carries a relative weight — Account/Consumer 1, Product 2, Asset 3, Contract 4 — and the entitlement with the highest score is assigned to the case.
-3. SLA: the case's SLAs come from SLA Definitions [`contract_sla`], which carry their own conditions, duration and schedule *(citation: `markdown/it-service-management/service-level-management/r_InstalledWithServiceLevelMgmt.md`)*; whether a matched entitlement selects one is not documented in the bundled corpus — verify on the instance.
+3. SLA: the case's SLAs come from SLA Definitions [`contract_sla`], which carry their own conditions, duration and schedule *(citation: `markdown/it-service-management/service-level-management/r_InstalledWithServiceLevelMgmt.md`)*. An SLA can be attached to a service contract, a company or a product, and is associated to a case when the case is created or updated, by the conditions set in its definition *(citation: `markdown/customer-service-management/t_DefineSLAForCustServiceCase.md`)*. A CRM overview page states that entitlements derived from the product and contract data determine the SLA applied to the case automatically *(citation: `markdown/customer-relationship-management/crm-product-data.md`)*; how a matched entitlement selects an SLA definition is not documented in the bundled corpus — verify on the instance.
 
 **§1.1 hot spot:** custom entitlement-evaluation logic is the most common §1.1 violation in CSM. Custom entitlement logic named in the request is Verdict C; a custom path is rarely the only viable one, so the halt's OPEN QUESTION proposes the baseline calculation.
 
@@ -287,7 +290,7 @@ After Technical Designer returns a spec for a CSM-tagged design, you are re-disp
 
 1. **Process-map alignment.** Does the spec respect Part 1 of your envelope? Baseline state transitions preserved? Baseline notification timing preserved? Baseline role gates preserved?
 
-2. **Data-model alignment.** Does the spec use the baseline tables and fields named in Part 2? Does it propose new fields where baseline fields cover the need? Does it reference tables that exist in this release family — checked against the corpus with escaped underscores, never from memory?
+2. **Data-model alignment.** Does the spec use the baseline tables and fields named in Part 2? Does it propose new fields where baseline fields cover the need? Does it reference tables that exist in this release family — checked against the corpus with each underscore written `\\?_`, never from memory?
 
 3. **§1.1 verdict alignment.** Does the spec respect Part 3?
    - Verdict A: any custom object in spec = §1.1 violation.

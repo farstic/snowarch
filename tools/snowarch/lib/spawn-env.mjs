@@ -30,6 +30,15 @@ export const NO_PROMPT_ENV = Object.freeze({ GIT_TERMINAL_PROMPT: '0', GIT_ASKPA
   GCM_INTERACTIVE: 'never' });
 
 /**
+ * ARC-09-C262 — git's own words in English, for a caller that READS them. The upgrade's classifier matches the sentences git
+ * prints ("would clobber existing tag", "could not resolve host"), and git translates them: a reader in another locale got the
+ * generic line. No rule about git's locale existed in this codebase (searched 2026-11-01). LC_ALL wins over every other
+ * category; gettext ignores LANGUAGE when the locale is C, but LANGUAGE is unset as well, because an undefined value is left out
+ * of a child's environment and the unset then rests on no rule of gettext's.
+ */
+export const ENGLISH_ENV = Object.freeze({ LC_ALL: 'C', LANGUAGE: undefined });
+
+/**
  * `process.env` plus what the caller wants, with the session variables pinned to this checkout.
  *
  * `extra` wins over the inherited environment, and the session variables win over both: a caller

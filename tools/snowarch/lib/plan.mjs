@@ -10,7 +10,7 @@
 // "Before anything is written" is load-bearing and is why this module writes through an injected
 // function rather than the logger: the logger creates `.local/logs/` on its first line, and
 // acceptance criterion 2 says quitting here leaves no `.local/` at all.
-import { MODE } from './docs/sync.mjs';
+import { MODE, effectiveDocsMode } from './docs/sync.mjs';
 import { plannedSteps } from './steps/index.mjs';
 import { redact } from './redact.mjs';
 import { spellings } from './text.mjs';
@@ -26,6 +26,13 @@ export const MODES = Object.freeze(['design-only', 'live']);
  * genuinely local value: it is not a checkout shape, it is this command declining to make one.
  */
 export const DOCS = Object.freeze([MODE.sparse, MODE.full, 'skip']);
+
+/**
+ * ARC-09-C244 — the choices the Docs line OFFERS: the whole corpus, the default, and skip. Sparse is a flag
+ * (`--docs sparse`) and never a choice on this screen, the owner's rule: it is never presented as a way to save
+ * space. `DOCS` above still says what a flag may name.
+ */
+export const DOCS_OFFERED = Object.freeze([MODE.full, 'skip']);
 
 /**
  * THE TWO LINES ABOVE THE PLAN — ARC-07-W13.
@@ -94,7 +101,7 @@ export const EXPLANATIONS = Object.freeze([
   // explains what a mode IS, and borrowing that sentence would put a second answer to "no instance
   // configured" in the tree. Plainer for a first-time reader too, which is what this row is for.
   ['Mode', 'design-only skips ServiceNow; live also configures an instance and needs Node.js 20+.'],
-  ['Docs', 'how much of the documentation corpus to fetch — sparse, full, or skip it for now.'],
+  ['Docs', 'how much of the documentation corpus to fetch — all of it, or skip it for now.'],
   ['Enter', 'runs the plan exactly as shown above. Nothing is written before that.'],
   ['a number', 'asks what that line should be, the way the instance wizard asks its questions.'],
   ['q', 'quits without writing anything.'],
@@ -102,7 +109,7 @@ export const EXPLANATIONS = Object.freeze([
   // unexplained makes the header's own offer false. These two answer the questions the orientation
   // lines raise rather than restating them: WHERE the writes go, and WHERE the minute goes.
   ['this folder', 'everything written lands in this checkout — settings, docs corpus, instance store.'],
-  ['the minute', 'mostly fetching the documentation corpus; sparse is quicker than full.'],
+  ['the minute', 'mostly fetching the documentation corpus, all of it.'],
 ]);
 
 /** The budget every other line on this screen is written to. */
@@ -142,7 +149,8 @@ export function buildPlan({ ctx, state = null, flags = {} }) {
   const recorded = state?.mode === 'live' ? 'live' : null;
   return {
     mode: nodeFixed ? 'design-only' : (asked ?? recorded ?? 'design-only'),
-    docs: DOCS.includes(flags.docs) ? flags.docs : (state?.docs?.mode ?? 'sparse'),
+    // ARC-09-C244 — a flag, else the recorded mode as effectiveDocsMode reads it: the whole corpus by default.
+    docs: DOCS.includes(flags.docs) ? flags.docs : effectiveDocsMode(state?.docs),
     nodeFixed,
     nodeVersion: ctx.node.version,
     areas: ctx.areaCount,
@@ -217,16 +225,14 @@ export const LINES = Object.freeze({
     of: (plan) => plan.mode,
     set: (plan, v) => ({ ...plan, mode: v }) },
   2: { label: 'Docs',
-    values: DOCS,
+    values: DOCS_OFFERED,
     meaning: {
-      // ~300 MB, AND THE BRIEF SAID ~180 — measured on the page that already states it.
-      // `docs/INSTALL.md` gives BOTH figures and says which is which: the working tree is 179 MB
-      // (183 on Windows) and tree plus `.git` is 302 MB, and *"the first is what you read, the second
-      // is what the disk loses."* At the moment somebody is deciding whether to fetch it, what the
-      // disk loses is the number that matters, so 180 would understate the cost by 40% on the one
-      // line where it is being chosen.
-      sparse: 'the documentation the specialists cite, ~300 MB (recommended)',
-      full: 'all of it',
+      // WHAT THE DISK LOSES, not what you read — measured on the page that already states both. The
+      // whole corpus is 293 MB of files (299 on Windows) and about 495 MB with its `.git` (ARC-09-C244,
+      // docs-real run 40076281656), and at the moment somebody is deciding whether to fetch it, what the
+      // disk loses is the number that matters. `docs/INSTALL.md` states the same figure, and a test holds
+      // the two within 10 MB of each other.
+      full: 'the whole ServiceNow documentation, ~495 MB (recommended)',
       // The launcher is spelled by the definition, never here — ARC-07-W7's rule. Read at module
       // load like B06's eight sites, and correct for the same reason: a process's platform does not
       // change, and a function here would turn the assertions below into comparisons of a value

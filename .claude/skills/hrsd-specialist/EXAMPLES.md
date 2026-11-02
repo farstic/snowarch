@@ -31,7 +31,7 @@ Three examples exercising each §1.1 verdict path. Each shows the full 5-Part Co
 The baseline HRSD Lifecycle Events framework handles structured employee journeys via the activity-set library. The OOB flow for any LE:
 
 1. **LE trigger** — typically a record producer in Employee Center ("Initiate Internal Transfer") or an HR agent action, or a scheduled trigger (e.g., effective-date-driven).
-2. **Lifecycle Event Case creation** — a new `sn_hr_le_case` record is created (extends `sn_hr_core_case`), with a reference to its Lifecycle Events Type (`sn_hr_le_type`; the field is not documented in the bundled corpus — verify on the instance) pointing to the configured LE type.
+2. **Lifecycle Event Case creation** — a new `sn_hr_le_case` record is created (extends `sn_hr_core_case`), with a reference to its Lifecycle Events Type (`sn_hr_le_type`; the field is not documented in the bundled corpus — verify on the instance) pointing to the configured LE type. When an HR service's **Fulfillment type** is Lifecycle Event (Enterprise Onboarding and Transition only), its own **Lifecycle Event Type** field names the lifecycle event that fulfills it *(citation: `markdown/employee-service-management/hr-service-delivery/configure-hr-service.md`)*; an HR service whose lifecycle event type is the same as the LE type used in an LE activity can create a loop that causes memory issues *(citation: `markdown/employee-service-management/lifecycle-events/create-hr-service-for-lifecycle-event.md`)*.
 3. **Activity Set retrieval** — `sn_hr_le_activity_set` records linked to the LE type fire in defined order.
 4. **Activity execution** — each `sn_hr_le_activity` runs:
    - Notifications fire via the HR notification engine
@@ -65,7 +65,7 @@ For an Internal Transfer specifically, baseline HRSD ships activity-set template
 |---|---|---|
 | `subject_person` | Reference to `sys_user` | The transferring employee |
 | `opened_for` | Reference to `sys_user` | Who initiated (often the employee or HRBP) |
-| (the LE type reference — field not documented in the bundled corpus — verify on the instance) | Reference to `sn_hr_le_type` | Links to the Internal Transfer LE definition |
+| (the LE type reference — field not documented in the bundled corpus — verify on the instance) | Reference to `sn_hr_le_type` | Links to the Internal Transfer LE definition; on the HR service, when its **Fulfillment type** is Lifecycle Event, the **Lifecycle Event Type** field selects the lifecycle event that fulfills it (Enterprise Onboarding and Transition only) *(citation: `markdown/employee-service-management/hr-service-delivery/configure-hr-service.md`)* |
 | `state` | Choice (inherits from `sn_hr_core_case`) | Lifecycle state |
 | `sub_state` | Choice | Use for transfer-specific stages if needed; not documented in the bundled corpus — verify on the instance |
 
@@ -284,7 +284,7 @@ The user's request describes *five distinct categories of sensitive data* with *
 | `sn_hr_core_profile` (existing fields) | None of the proposed fields exist baseline. Passport, work-permit, dependants and clearance are absent; emergency contacts are a baseline related list (next row). |
 | Dictionary extension on `sn_hr_core_profile` | Possible — but field-level ACLs would need to be configured per field with COE-specific conditions. |
 | `sys_user.country` | Exists but covers nationality at user level, not passport details. |
-| Emergency contacts | Baseline and structured: the HR profile's Emergency Contacts list, records in `sn_hr_core_contact`, one designated primary and the others alternates *(citation: `markdown/employee-service-management/hr-service-delivery/t_CreateOrModifyAUserProfile.md`, `markdown/employee-service-management/hr-service-delivery/document-template-scripts.md`)*. Whether a record carries all five requested attributes is not documented in the bundled corpus — verify on the instance. |
+| Emergency contacts | Baseline and structured: the HR profile's Emergency Contacts list, records in `sn_hr_core_contact`, one designated primary and the others alternates *(citation: `markdown/employee-service-management/hr-service-delivery/t_CreateOrModifyAUserProfile.md`, `markdown/employee-service-management/hr-service-delivery/document-template-scripts.md`)*. A documented template script reads `name`, `mobile_phone`, `relation_to_employee`, `priority` and `date_of_birth` from these records *(citation: `markdown/employee-service-management/hr-service-delivery/document-template-scripts.md`)*, and the HR Contact form takes the contact's name and telephone numbers, in the plural *(citation: `markdown/employee-service-management/hr-service-delivery/t_Contacts.md`)*, so a relationship and a phone are covered; a full address, and the field that would hold an alternative phone, are not documented in the bundled corpus — verify on the instance. |
 
 **Related baseline constructs:**
 
@@ -388,7 +388,7 @@ OQ-EV-1. **Country-specific HR data law applicability** — Passport, work-permi
 OQ-EV-2. **Encryption-at-rest requirement** — Does engagement's DPO require column-level encryption for passport/clearance fields? Affects design pattern (custom-table with encryption vs sealed scoped-app integration).
 OQ-EV-3. **HRIS authoritative source** — Is the engagement's HRIS (Workday/SAP/BambooHR) the authoritative source for any of these fields? If yes, ServiceNow becomes a read-only consumer, simplifying the storage question.
 OQ-EV-4. **Dependants — PII or special-category?** Family member data may be special-category in some jurisdictions. Clarify whether storage in ServiceNow is acceptable at all.
-OQ-EV-5. **Emergency contact — do the baseline records carry all five attributes?** Baseline emergency contacts (`sn_hr_core_contact`) are structured; confirm they hold relationship, full address, phone and alternative phone — not documented in the bundled corpus — verify on the instance.
+OQ-EV-5. **Emergency contact — do the baseline records carry all four attributes?** Baseline emergency contacts (`sn_hr_core_contact`) are structured: a documented template script reads their `relation_to_employee` and `mobile_phone` *(citation: `markdown/employee-service-management/hr-service-delivery/document-template-scripts.md`)*, and the HR Contact form takes telephone numbers, in the plural *(citation: `markdown/employee-service-management/hr-service-delivery/t_Contacts.md`)*; confirm a full address and the field for the alternative phone, which are not documented in the bundled corpus — verify on the instance.
 OQ-EV-6. **Mobility COE membership model** — How is "Mobility COE" membership represented in `sys_user_group` in the engagement? ACL conditions need to reference the membership pattern correctly.
 
 ---

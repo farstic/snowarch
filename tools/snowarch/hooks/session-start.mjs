@@ -170,6 +170,22 @@ async function licenceLine({ root, now, env, keys }) {
 }
 
 /**
+ * ARC-09-C250 — `Docs on disk: <family> · <mode> · N/M …`, or `null`: the corpus map's areas against what this
+ * checkout has, so the Architect tells "not installed here" from "not documented".
+ *
+ * `null` prints nothing, as for the licence line. Reads alone — the shipped map, a directory listing, the recorded mode
+ * and the configured family — so no child, and after the integrity event, which can put the map back.
+ */
+async function docsOnDiskLine({ root }) {
+  try {
+    const { bannerDocsLine } = await import('../lib/docs/banner-line.mjs');
+    return bannerDocsLine({ root });
+  } catch {
+    return null;
+  }
+}
+
+/**
  * ARC-09-C5 — where the re-run path's time goes, measured, and OFF unless asked.
  *
  * The Windows cells spend 690–920 ms of the product's own time on this path and nobody knows on
@@ -220,6 +236,8 @@ export async function banner({ root = ROOT, now = Date.now(), watchdogMs = WATCH
   const licence = await licenceLine({ root, now, env, keys: licenceKeys });
   // ARC-11-C141 — before the cache is read: a restore changes files the doctor's cache keys on.
   const integrity = await integrityEvent({ root, now, keys: licenceKeys });
+  // ARC-09-C250 — after the Licence and Integrity lines on every path that prints a Mode line.
+  const docs = await docsOnDiskLine({ root });
 
   const cache = readJson(cachePath(root));
   const inputs = readJson(inputsPath(root));
@@ -237,6 +255,7 @@ export async function banner({ root = ROOT, now = Date.now(), watchdogMs = WATCH
     say(cache.modeLine);
     say(licence);
     say(integrity);
+    say(docs);
     for (const line of nudges({ cache, banner: BANNER, firstRun: false, upgrade, upgradeSays, spell: spellings() })) say(line);
     phase.mark('render');
     phase.done('cache');
@@ -251,6 +270,7 @@ export async function banner({ root = ROOT, now = Date.now(), watchdogMs = WATCH
     say(modeLine({ mode: 'unknown', qualifier: MODE_VARIANTS.notBootstrapped(spellings()) }));
     say(licence);
     say(integrity);
+    say(docs);
     return { path: 'unbootstrapped', lines: out };
   }
 
@@ -272,12 +292,14 @@ export async function banner({ root = ROOT, now = Date.now(), watchdogMs = WATCH
       : BANNER.timedOut(spellings()));
     say(licence);
     say(integrity);
+    say(docs);
     return { path: 'timeout', lines: out };
   }
 
   say(report.modeLine);
   say(licence);
   say(integrity);
+  say(docs);
   for (const line of nudges({ report, banner: BANNER, firstRun: cache === null, upgrade, upgradeSays, spell: spellings() })) say(line);
   phase.mark('render');
   phase.done('rerun');

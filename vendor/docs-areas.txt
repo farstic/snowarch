@@ -1,11 +1,15 @@
+markdown/acct-lifecycle-events
 markdown/api-reference
 markdown/application-development
 markdown/build-workflows
 markdown/core-business-suite
+markdown/customer-relationship-management
 markdown/customer-service-management
+markdown/delta-xanadu-australia
 markdown/employee-service-management
 markdown/financial-services-operations
 markdown/governance-risk-compliance
+markdown/healthcare-life-sciences
 markdown/integrate-applications
 markdown/intelligent-experiences
 markdown/it-asset-management
@@ -13,8 +17,8 @@ markdown/it-business-management
 markdown/it-operations-management
 markdown/it-service-management
 markdown/now-intelligence
-markdown/now-platform
 markdown/platform-administration
 markdown/platform-security
 markdown/platform-user-interface
+markdown/release-notes
 markdown/servicenow-platform

@@ -99,12 +99,16 @@ function readState(root, spell) {
   return loadStateOrReason(root, spell).state ?? { steps: {} };
 }
 
-/** F2 — the corpus, through the bootstrap's docs step. `skip` becomes `sparse`, and says so. */
+/**
+ * F2 — the corpus, through the bootstrap's docs step. `skip` becomes the default, the whole corpus
+ * (ARC-09-C244), and says so.
+ */
 async function fixDocs({ root, ctx, kind, run }) {
   const B02 = await import('../steps/B02.mjs');
-  const recorded = ctx.docsMode ?? 'sparse';
-  const mode = recorded === 'skip' ? 'sparse' : recorded;
-  const note = recorded === 'skip' ? 'recorded mode was "skip" — synced as "sparse"' : null;
+  const { MODE } = await import('../docs/sync.mjs');
+  const recorded = ctx.docsMode ?? MODE.full;
+  const mode = recorded === 'skip' ? MODE.full : recorded;
+  const note = recorded === 'skip' ? `recorded mode was "skip" — synced as "${MODE.full}"` : null;
   const state = readState(root, spellFor(ctx));
   const r = await (run ?? B02.run)(stepContext(root, ctx, { state, docs: mode }));
   if (r?.status === 'fail') return result('failed', r.detail);
@@ -141,7 +145,7 @@ async function fixHeadOffPin({ root, ctx, fix, run }) {
   let r;
   try {
     // Its lines go nowhere, as B02's do under F2: `--fix --json` keeps stdout for the one object.
-    r = await (run ?? sync.syncCorpus)({ root, config: ctx.config, mode: ctx.docsMode ?? 'sparse',
+    r = await (run ?? sync.syncCorpus)({ root, config: ctx.config, mode: ctx.docsMode ?? sync.MODE.full,
       log: () => {} });
   } catch (e) {
     if (!(e instanceof sync.SyncError)) throw e;
@@ -269,8 +273,10 @@ export const FIXERS = Object.freeze([
     apply: fixToggles },
   // ARC-11-C10 — the SessionStart hook, through the same merge writer: with node present it writes B07's entry,
   // replacing a wrong one, and it refuses a file that is not gitignored or does not parse, with its own reason.
-  { id: 'F6', kind: 'hook-absent', title: 'register the SessionStart hook', apply: fixToggles },
-  { id: 'F6', kind: 'hook-wrong', title: 'rewrite the SessionStart hook', apply: fixToggles },
+  // ARC-09-C231 — the writer writes both of our hooks, SessionStart's and the PostToolUse citation check, so the
+  // same two fixes cure either.
+  { id: 'F6', kind: 'hook-absent', title: 'register the hooks', apply: fixToggles },
+  { id: 'F6', kind: 'hook-wrong', title: 'rewrite the hooks', apply: fixToggles },
   { id: 'F8', kind: 'integrity-restore', title: 'put the signed files back', apply: fixIntegrity },
   { id: 'F7', kind: 'cache-stale', title: 'clear the stale doctor cache', apply: fixCache },
 ]);

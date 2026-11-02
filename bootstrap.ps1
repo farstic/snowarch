@@ -33,7 +33,7 @@ $MSG_CITATIONS = 'citations: not verified until Node 20+ is installed'
 
 . "$Root\tools\snowarch\launcher\docs-recipe.ps1"
 
-$Mode = 'design'; $Docs = 'sparse'; $Yes = $false; $Reset = $false; $SkipClaude = $false
+$Mode = 'design'; $Docs = 'full'; $Yes = $false; $Reset = $false; $SkipClaude = $false
 $NodeOnly = $false; $Orig = @()
 
 # `Set-Content -Encoding UTF8` on 5.1 means UTF-8 WITH a BOM, and every file written below is
@@ -85,7 +85,7 @@ for ($i = 0; $i -lt $args.Length; $i++) {
     '^--skip-claude-check$' { $SkipClaude = $true; break }
     '^--(from|instance-file)(=.*)?$' { $NodeOnly = $true; break }
     '^--json$'          { $NodeOnly = $true; break }
-    '^(--help|-h)$'     { Say 'usage: .\bootstrap.cmd [--mode design|live] [--docs sparse|full|skip] [--yes] [--reset]'; exit 0 }
+    '^(--help|-h)$'     { Say 'usage: .\bootstrap.cmd [--mode design|live] [--docs full|skip|sparse] [--yes] [--reset]'; exit 0 }
   }
 }
 
@@ -152,10 +152,14 @@ if ($SkipClaude) {
   Say "ok B00 claudeCode: $ClaudeV"
 }
 
+# ARC-09-C259: the floor is in bytes and decimal, the same number as DISK_SPARSE in B00.mjs and DISK_FLOOR_BYTES in bootstrap.sh
+# (tests/size-unit.test.mjs reads all three).
+$DiskFloorBytes = 1000000000
+$GbBytes = 1000000000
 $FreeBytes = (Get-PSDrive -Name ($Root.Substring(0, 1)) -ErrorAction SilentlyContinue).Free
 if (-not $FreeBytes) { $FreeBytes = 0 }
-if ($FreeBytes -lt 1073741824) { Die 'B00' 'less than 1 GiB free' ("free up space on $Root") 3 }
-Say ("ok B00 disk: {0} GB free" -f [int]($FreeBytes / 1073741824))
+if ($FreeBytes -lt $DiskFloorBytes) { Die 'B00' 'less than 1 GB free' ("free up space on $Root") 3 }
+Say ("ok B00 disk: {0} GB free" -f [int]($FreeBytes / $GbBytes))
 
 # ARC-09-C29: the host THIS RUN will contact, which is the corpus remote (B02 fetches it). The
 # product repository is never contacted by a bootstrap — `upgrade` uses the checkout's own
@@ -190,14 +194,13 @@ Step 'B00' 'preflight' 'ok'
 
 if (-not $Yes) {
   $DocsNote = ''
-  if ($Docs -ne 'skip') {
+  if ($Docs -eq 'sparse') {   # ARC-09-C244: a cited-area count belongs to sparse
     $areas = @(Get-Content "$Root\vendor\docs-areas.txt" | Where-Object { $_.Trim() -ne '' })
     $DocsNote = " ($($areas.Length) areas)"
   }
   Say ("Plan: Mode design-only (fixed — Node.js 20+ not found) · Docs {0}{1}" -f $Docs, $DocsNote)
-  Say 'Enter = run · d = docs full · s = docs skip · q = quit'
+  Say 'Enter = run · s = docs skip · q = quit'
   $answer = Read-Host
-  if ($answer -eq 'd') { $Docs = 'full' }
   if ($answer -eq 's') { $Docs = 'skip' }
   if ($answer -eq 'q') { exit 0 }
 }
@@ -219,6 +222,7 @@ function Save-State {
     startedAt = $Started; updatedAt = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
     steps = $StepStates
   }
+  if ($Docs -eq 'sparse') { $state.docs['optIn'] = $true }   # ARC-09-C244: --docs sparse is kept as asked
   Write-Json "$Root\.local\bootstrap-state.json" $state 5
 }
 # `$Ms` is the measured duration, when the step measured itself. `inputsHash` stays null on

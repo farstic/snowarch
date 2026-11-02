@@ -228,9 +228,9 @@ checkout.
 
 ```sh
 { [ -e vendor/ServiceNowDocs/.git ] || git clone --filter=blob:none --no-checkout --depth 1 --sparse --branch australia https://github.com/ServiceNow/ServiceNowDocs.git vendor/ServiceNowDocs ; } && \
-git -C vendor/ServiceNowDocs sparse-checkout set --cone markdown/api-reference markdown/application-development markdown/build-workflows markdown/core-business-suite markdown/customer-service-management markdown/employee-service-management markdown/financial-services-operations markdown/governance-risk-compliance markdown/integrate-applications markdown/intelligent-experiences markdown/it-asset-management markdown/it-business-management markdown/it-operations-management markdown/it-service-management markdown/now-intelligence markdown/now-platform markdown/platform-administration markdown/platform-security markdown/platform-user-interface markdown/servicenow-platform legal && \
-git -C vendor/ServiceNowDocs fetch --depth 1 origin aa447ce4ea802c880af9dd365a114d3e6eb1cc19 && \
-git -C vendor/ServiceNowDocs checkout --detach aa447ce4ea802c880af9dd365a114d3e6eb1cc19 && \
+git -C vendor/ServiceNowDocs sparse-checkout set --cone markdown/acct-lifecycle-events markdown/api-reference markdown/application-development markdown/build-workflows markdown/core-business-suite markdown/customer-relationship-management markdown/customer-service-management markdown/delta-xanadu-australia markdown/employee-service-management markdown/financial-services-operations markdown/governance-risk-compliance markdown/healthcare-life-sciences markdown/integrate-applications markdown/intelligent-experiences markdown/it-asset-management markdown/it-business-management markdown/it-operations-management markdown/it-service-management markdown/now-intelligence markdown/platform-administration markdown/platform-security markdown/platform-user-interface markdown/release-notes markdown/servicenow-platform legal && \
+git -C vendor/ServiceNowDocs fetch --depth 1 origin c10276e953456835cdbb1f3a60d58ae1980be353 && \
+git -C vendor/ServiceNowDocs checkout --detach c10276e953456835cdbb1f3a60d58ae1980be353 && \
 { git submodule absorbgitdirs vendor/ServiceNowDocs || true ; } && \
 { git submodule init -- vendor/ServiceNowDocs || true ; } && \
 echo "docs: ServiceNow product documentation © 2026 ServiceNow, Apache-2.0 — vendor/ServiceNowDocs/LICENSE"
@@ -323,7 +323,7 @@ rather than discovering the second after fixing the first. Any FAIL ends the run
 | 1 | root | `cwd` is not the checkout, or git reports a different toplevel (both compared through `realpath`) | `remedies.json` → the platform's own `cd` |
 | 2 | git | absent, or below `floors.git` | `xcode-select` · `winget` · the distribution package |
 | 3 | Claude Code | absent, or below `floors.claudeCode`. Not logged in is a **WARN**, never a FAIL — signing in is Claude Code's own first-run flow | the install page |
-| 4 | disk | less than 1 GiB free (1.5 GiB for the full corpus). Unmeasurable is a WARN, not a FAIL | `free up <n> MB on <mount>` |
+| 4 | disk | less than 1 GB free (1.5 GB for the full corpus). Unmeasurable is a WARN, not a FAIL | `free up <n> MB on <mount>` |
 | 5 | network | `HEAD https://github.com/` fails — through `HTTPS_PROXY` by CONNECT tunnel, honouring `NO_PROXY` | the shared network vocabulary (below) |
 | 6 | Node | absent or below `floors.node` — a `note:` in design-only, a FAIL only for live | `brew` · `winget` · nvm |
 | 7 | platform | never; 32-bit is a WARN | — |
@@ -715,6 +715,7 @@ anything), and the table below, which is generated from it.
 |  | `node present` | literal | no Node means the hook is disabled |
 |  | `hooks disabled` | literal | S-05: the launcher may have turned them off |
 |  | `registration` | literal | project or user changes what is written |
+|  | `hooks written` | literal | the hook entries this release writes |
 | `B08` the doctor | `packages/snowarch/dist/contract.json` | file | by sha — a different server answers differently |
 |  | `store mtime+size` | literal | NEVER the content: see the credential rule above |
 |  | `mode` | literal | design-only skips the server section |
@@ -1193,7 +1194,7 @@ whatever it costs). They are required rather than defaulted — the failure mode
 `network` is a doctor that touched the network on a machine that has none.
 
 **The runner owns three promises.** Every selected check runs: one that throws becomes a `fail`
-carrying its message, one that hangs becomes a `fail` after its timeout (15 s, 20 s for a network
+carrying its message, one that hangs becomes a `fail` after its timeout (15 s, 25 s for a network
 check), and a report that stopped at the first bad answer would describe a checkout as healthy up to
 the point where it stopped looking. Nothing reaches the output unredacted — the redaction pass is
 applied by the runner, so a check cannot forget it. And a check that names an error `code` gets its
@@ -1222,7 +1223,9 @@ account name on every platform. A home directory reads `~` — the run's own hom
 from `bin/snowarch.mjs`, because nothing under `lib/` may read the home itself) and the four generic
 shapes by pattern —
 and what follows it survives: the depth of the checkout, a space in the path, the drive letter — the
-part a maintainer uses, none of it naming anybody.
+part a maintainer uses, none of it naming anybody. An address's domain is the fourth, for the same reason: the server
+masks a username to `j***@clientco.com`, and the domain names the organisation, so it reads `<domain>` whatever the
+store holds (ARC-09-C242).
 
 **One report, one Mode line** (ARC-08-S05). The sections print in a fixed order — prereqs, repo,
 docs, roster, contract, legacy, host, server — and the last line is always the Mode line, because
@@ -1271,7 +1274,7 @@ about one registry rather than several:
 | `E-12` | docs | docs corpus present | — | yes |
 | `E-13` | docs | docs pin | — | yes |
 | `E-14` | docs | docs family | — | — |
-| `E-15` | docs | sparse set | — | yes |
+| `E-15` | docs | corpus completeness | — | yes |
 | `E-16` | docs | citations | — | — |
 | `E-17` | roster | roster from directory listing | yes | — |
 | `E-18` | roster | skill descriptions | yes | — |
@@ -1319,8 +1322,8 @@ REFUSED with the check's own command, and a grep test proves the module cannot r
 | `F5` | `store-mode` | restore the store directory mode | `.local/` |
 | `F6` | `toggles-mismatch` | rewrite the mode toggles | `.claude/settings.local.json` |
 | `F6` | `hooks-disabled-by-bootstrap` | remove the bootstrap's hook toggle | `.claude/settings.local.json` |
-| `F6` | `hook-absent` | register the SessionStart hook | `.claude/settings.local.json` |
-| `F6` | `hook-wrong` | rewrite the SessionStart hook | `.claude/settings.local.json` |
+| `F6` | `hook-absent` | register the hooks | `.claude/settings.local.json` |
+| `F6` | `hook-wrong` | rewrite the hooks | `.claude/settings.local.json` |
 | `F8` | `integrity-restore` | put the signed files back | `the covered files E-32 names; what it replaces is kept in .local/integrity-removed/` |
 | `F7` | `cache-stale` | clear the stale doctor cache | `.local/doctor-last.json` |
 <!-- /generated:doctor-fixes -->

@@ -11,14 +11,14 @@
 // E-12 and E-16 are FAIL and never WARN or SKIP when the corpus is absent. The engine's whole
 // claim is that its ServiceNow facts are grounded; reporting the failure of the thing the product
 // is FOR as a note in the margin is the one report that would mislead an operator into shipping.
-import { ALWAYS_DIRS, ROOT_FILES } from '../../docs/sync.mjs';
+import { ALWAYS_DIRS, MODE, ROOT_FILES } from '../../docs/sync.mjs';
 import { bootstrapOf, cliOf, spellFor } from '../spell.mjs';
 import { docsStatus, E12_ABSENT, SPARSE } from '../../docs/status.mjs';
 import { defineCheck } from '../registry.mjs';
 import { isEngineeringCheckout } from '../../engineering-checkout.mjs';
 import { restoreRemedy } from '../../licence/manifest.mjs';
 
-import { fail, ok, skip } from './result.mjs';
+import { fail, ok, skip, warn } from './result.mjs';
 
 /**
  * The corpus status, computed once per run per verification level.
@@ -29,7 +29,8 @@ import { fail, ok, skip } from './result.mjs';
 export function docsFor(ctx, { verify = false } = {}) {
   const key = verify ? '_docsVerified' : '_docsPlain';
   if (!ctx[key]) {
-    ctx[key] = (ctx.docsStatus ?? docsStatus)({ root: ctx.root, verify, measure: false });
+    // ARC-09-C244 — with the completeness fields, which E-15 reads and the banner does not pay for.
+    ctx[key] = (ctx.docsStatus ?? docsStatus)({ root: ctx.root, verify, measure: false, completeness: true });
   }
   return ctx[key];
 }
@@ -179,7 +180,7 @@ export function engineDocsChecks() {
     defineCheck({
       id: 'E-15',
       section: 'docs',
-      title: 'sparse set',
+      title: 'corpus completeness',
       severity: 'fail',
       // ARC-09-C8. Not its own cost: `docsFor` shares ONE `docsStatus` across E-12…E-15, and
       // that call spawns git three times (rev-parse, branch, sparse-checkout). Whichever of
@@ -192,27 +193,43 @@ export function engineDocsChecks() {
       run: async (ctx) => {
         const s = docsFor(ctx);
         if (!s.present) return absent();
-        const problems = [];
-        // `pattern` is the shape git 2.25–2.34 stored when it did not understand `--cone`; it
-        // works, but it is not what the engine writes, and a checkout in that shape is one whose
-        // area list nobody can reason about.
-        // `SPARSE`, not the two words: `full` is a name the contract owns, and a literal copy of
-        // it here is a second definition for ARC-05-S10's scan to find (it did).
-        if (![SPARSE.cone, SPARSE.full].includes(s.sparse)) {
-          problems.push(`sparse checkout is "${s.sparse}"`);
+        const cli = cliOf(ctx);
+        // The tree's areas when the doctor asked for them; the areas on disk otherwise (an injected status).
+        const inTree = s.areasInTree ?? s.areaCount ?? s.areasPresent.length;
+        const onDisk = s.areaCount ?? s.areasPresent.length;
+        const data = { sparse: s.sparse, areas: onDisk, inTree,
+          missing: s.areasMissing, fix: { kind: 'sparse-mismatch' } };
+        // A recorded skip with a corpus on disk is E-12's finding, and this check does not repeat it.
+        if (s.mode === 'skip') return skip('the recorded docs mode is "skip" — see E-12', data);
+        // ARC-09-C244 — the whole corpus is complete when sparse checkout is off, no skip-worktree entry is left, and
+        // every area of the pinned tree is a directory on disk. Short of that, under the whole-corpus mode, the switch
+        // did not finish, and `doctor --fix` completes it: a command an unlicensed install may run, where `docs sync`
+        // is refused. `SPARSE`, not the words: `full` is a name the contract owns (ARC-05-S10).
+        if (s.mode === MODE.full) {
+          const whole = s.sparse === SPARSE.full && !(s.skipWorktree > 0) && onDisk >= inTree;
+          return whole
+            ? ok(`full · ${onDisk}/${inTree} areas`, data)
+            : fail('the switch to the full corpus did not finish', {
+              remedy: `run ${cli} doctor --fix`, command: `${cli} doctor --fix`, data });
         }
+        // A sparse that was asked for (`--docs sparse`), or one inferred with nothing recorded. `pattern` is the shape
+        // git 2.25–2.34 stored when it did not understand `--cone`; a checkout in that shape is one whose area list
+        // nobody can reason about.
+        const problems = [];
+        if (![SPARSE.cone, SPARSE.full].includes(s.sparse)) problems.push(`sparse checkout is "${s.sparse}"`);
         if (s.areasMissing.length > 0) {
           problems.push(`${s.areasMissing.length} area(s) missing: ${s.areasMissing.slice(0, 6).join(', ')}`);
         }
-        const data = { sparse: s.sparse, areas: s.areasPresent.length,
-          missing: s.areasMissing, fix: { kind: 'sparse-mismatch' } };
-        return problems.length === 0
-          ? ok(`${s.sparse} · ${s.areasPresent.length} area(s)`, data)
-          : fail(problems.join('; '), {
-            remedy: `run ${cliOf(ctx)} docs sync`,
-            command: `${cliOf(ctx)} docs sync`,
-            data,
-          });
+        if (problems.length > 0) {
+          return fail(problems.join('; '), { remedy: `run ${cli} docs sync`, command: `${cli} docs sync`, data });
+        }
+        // ARC-09-C244 — sparse by choice is a warning, its numbers from the tree: the areas it leaves out are areas the
+        // Architect cannot read here.
+        if (s.sparse === SPARSE.cone) {
+          return warn(`sparse by choice — ${inTree - onDisk} of ${inTree} areas are not on disk; answers about them are ungrounded`,
+            { data });
+        }
+        return ok(`${s.sparse} · ${onDisk}/${inTree} areas`, data);
       },
     }),
 

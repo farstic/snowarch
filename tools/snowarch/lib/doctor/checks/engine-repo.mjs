@@ -20,7 +20,8 @@ import { plannedSteps } from '../../steps/index.mjs';
 import { version as engineVersionOf } from '../../config.mjs';
 import { spellings } from '../../text.mjs';
 import { defineCheck } from '../registry.mjs';
-import { isOurSessionStartHook, projectEntryEnabled } from '../../settings-local.mjs';
+import { hookEntry, isOurPostWriteHook, isOurReadFailureHook, isOurSessionStartHook, isOurStopHook, projectEntryEnabled }
+  from '../../settings-local.mjs';
 import { RUNNING_STEP_ENV } from '../../spawn-env.mjs';
 import { which } from '../../which.mjs';
 
@@ -131,34 +132,91 @@ export function configProblems(config, root) {
  * at every session start, so the hook is written locally and only when Node is present (S-05
  * variant B). A check that looked for it in the committed file would fail every correct install.
  *
- * The shape is that writer's: ONE `command` string, `${CLAUDE_PROJECT_DIR}`-relative, `timeout: 10`.
+ * The shape is that writer's (`hookEntry`): `${CLAUDE_PROJECT_DIR}`-relative, `timeout: 10`. ARC-09-C239 — SessionStart a
+ * shell command with the path quoted; the citation hook `node` with its loader as `args`, in exec form.
  *
  * ARC-11-C10 — what is wrong is told apart from where the cure is: `entry` holds the problems the entry itself has,
  * which B07's writer rewrites (`doctor --fix`); `scriptMissing` is the tracked file gone, which no rewrite brings
  * back. `problems` is both, as E-08 reports them.
  * @returns {{problems: string[], entry: string[], scriptMissing: boolean, present: boolean}}
  */
-export function sessionStartProblems(local, root) {
+export const sessionStartProblems = (local, root) => ourHookProblems(local, root,
+  { event: 'SessionStart', isOurs: isOurSessionStartHook, script: 'tools/snowarch/hooks/session-start.mjs' });
+
+/** ARC-09-C231 — the citation hook's script. */
+const POST_SCRIPT = 'tools/snowarch/hooks/post-write.mjs';
+
+/**
+ * ARC-09-C231 — the PostToolUse citation hook, read the same way: the same shape, the same three kinds of problem.
+ * @returns {{problems: string[], entry: string[], scriptMissing: boolean, present: boolean}}
+ */
+export const postWriteProblems = (local, root) => ourHookProblems(local, root,
+  { event: 'PostToolUse', isOurs: isOurPostWriteHook, script: POST_SCRIPT });
+
+/** ARC-09-C255 — the scripts of the two hooks ARC-09-C254 added. */
+const READ_SCRIPT = 'tools/snowarch/hooks/read-failure.mjs';
+const STOP_SCRIPT = 'tools/snowarch/hooks/stop-citations.mjs';
+
+/**
+ * ARC-09-C255 — the PostToolUseFailure hook for Read, and the Stop hook: read the same way as the citation hook, with the
+ * same shape and the same three kinds of problem.
+ * @returns {{problems: string[], entry: string[], scriptMissing: boolean, present: boolean}}
+ */
+export const readFailureProblems = (local, root) => ourHookProblems(local, root,
+  { event: 'PostToolUseFailure', isOurs: isOurReadFailureHook, script: READ_SCRIPT });
+export const stopCitationsProblems = (local, root) => ourHookProblems(local, root,
+  { event: 'Stop', isOurs: isOurStopHook, script: STOP_SCRIPT });
+
+/**
+ * ARC-09-C255 — the hooks that add a check or a note and take nothing from the session when they are gone: the citation
+ * hook (ARC-09-C231) and the two ARC-09-C254 added. E-08 reads each for its script, E-10 for its entry, in this order, and
+ * an entry absent or wrong is a WARN; `lacks` says what the session loses.
+ */
+const ADDED_HOOKS = Object.freeze([
+  { problems: postWriteProblems, script: POST_SCRIPT,
+    lacks: 'no PostToolUse citation hook, so a dead citation in a file written under clients/ is not caught when it is written' },
+  { problems: readFailureProblems, script: READ_SCRIPT,
+    lacks: 'no PostToolUseFailure hook, so a Read of a corpus page that is not at the path a link gives is not told which page was meant' },
+  { problems: stopCitationsProblems, script: STOP_SCRIPT,
+    lacks: 'no Stop hook, so a reply that cites a dead corpus path is not sent back once for a correction line' },
+]);
+
+/** One of our hooks in `event`, against its `script`: what `sessionStartProblems` read, for any hook we write. */
+function ourHookProblems(local, root, { event, isOurs, script }) {
   const entry = [];
   let scriptMissing = false;
-  const entries = local?.hooks?.SessionStart;
+  const entries = local?.hooks?.[event];
   const hooks = (Array.isArray(entries) ? entries : []).flatMap((e) => e.hooks ?? []);
   // ARC-09-C193 — the writer's own definition of our hook, so the two cannot disagree about which entry is ours.
-  const hook = hooks.find(isOurSessionStartHook);
+  const hook = hooks.find(isOurs);
   if (!hook) return { problems: [], entry, scriptMissing, present: false };
   const command = String(hook.command ?? '');
-  if (!/^node\s/.test(command)) entry.push(`SessionStart does not run node (${command})`);
+  const args = Array.isArray(hook.args) ? hook.args.map(String) : [];
+  const shown = [command, ...args].join(' ');
+  if (!/^node(\s|$)/.test(command)) entry.push(`${event} does not run node (${shown})`);
   // B07 writes the path ${CLAUDE_PROJECT_DIR}-relative, so the entry follows the checkout wherever it moves; an
   // absolute path to another checkout's script, or a script elsewhere in this one, is a hook at a wrong path.
-  if (!/\$\{CLAUDE_PROJECT_DIR\}\/tools\/snowarch\/hooks\/session-start\.mjs$/.test(command)) {
-    entry.push(`SessionStart does not run \${CLAUDE_PROJECT_DIR}/tools/snowarch/hooks/session-start.mjs (${command})`);
-  } else if (!existsSync(join(root, 'tools', 'snowarch', 'hooks', 'session-start.mjs'))) {
-    scriptMissing = true;
+  // ARC-09-C239 — in either of the forms an entry of ours has had: a shell command naming the script, quoted or not,
+  // or the exec-form loader, which names it in its argument and reads the project path inside Node.
+  const runsOurs = args.length === 0
+    ? command.replace(/"/g, '').endsWith(`\${CLAUDE_PROJECT_DIR}/${script}`)
+    : args[0] === '-e' && args.length === 2 && args[1].includes('process.env.CLAUDE_PROJECT_DIR')
+      && args[1].includes(`'${script}'`);
+  if (!runsOurs) {
+    entry.push(`${event} does not run \${CLAUDE_PROJECT_DIR}/${script} (${shown})`);
+  } else {
+    // ARC-09-C239 — the right script, but not as B07 writes it now: SessionStart without the quotes, or the citation
+    // hook through a shell. B07's writer rewrites it, as `doctor --fix` does.
+    const want = hookEntry()[event][0].hooks[0];
+    if (command !== want.command || JSON.stringify(args) !== JSON.stringify(want.args ?? [])) {
+      entry.push(`${event} is not in the form B07 writes (${shown})`);
+    }
+    if (!existsSync(join(root, ...script.split('/')))) scriptMissing = true;
   }
   if (!(Number(hook.timeout) <= 10)) {
-    entry.push(`SessionStart timeout is ${hook.timeout}, which is more than 10 s`);
+    entry.push(`${event} timeout is ${hook.timeout}, which is more than 10 s`);
   }
-  const problems = [...entry, ...(scriptMissing ? ['tools/snowarch/hooks/session-start.mjs is not on disk'] : [])];
+  const problems = [...entry, ...(scriptMissing ? [`${script} is not on disk`] : [])];
   return { problems, entry, scriptMissing, present: true };
 }
 
@@ -358,8 +416,12 @@ export function engineRepoChecks() {
         let local = null;
         try { local = readJson(ctx.root, SETTINGS_LOCAL); } catch { local = null; }
         const hook = sessionStartProblems(local, ctx.root);
+        // ARC-09-C231 — the citation hook's script, a tracked file like SessionStart's. Its entry, absent or wrong, is
+        // E-10's to WARN; a script gone is a tree that is not the release, so it fails here as session-start.mjs does.
+        // ARC-09-C255 — the same for the two hooks ARC-09-C254 added.
+        const gone = ADDED_HOOKS.filter((h) => h.problems(local, ctx.root).scriptMissing);
         const settingsWrong = problems.length > 0;
-        problems.push(...hook.problems);
+        problems.push(...hook.problems, ...gone.map((h) => `${h.script} is not on disk`));
         if (problems.length === 0) {
           return ok(`MCP_TIMEOUT ${settings.env.MCP_TIMEOUT} · SessionStart hook `
             + `${hook.present ? 'present' : 'not installed'}`,
@@ -372,10 +434,12 @@ export function engineRepoChecks() {
         const cures = [
           ...(settingsWrong ? ['git checkout -- .claude/settings.json'] : []),
           ...(hook.scriptMissing ? [`git checkout -- ${SCRIPT} (on a release tree E-32 names it as missing too)`] : []),
+          ...gone.map((h) => `git checkout -- ${h.script} (on a release tree E-32 names it as missing too)`),
           ...(hook.entry.length > 0 ? [`${cliOf(ctx)} doctor --fix`] : []),
         ];
         const command = settingsWrong ? 'git checkout -- .claude/settings.json'
-          : hook.scriptMissing ? `git checkout -- ${SCRIPT}` : `${cliOf(ctx)} doctor --fix`;
+          : hook.scriptMissing ? `git checkout -- ${SCRIPT}`
+            : gone.length > 0 ? `git checkout -- ${gone[0].script}` : `${cliOf(ctx)} doctor --fix`;
         return fail(problems.join('; '), {
           remedy: cures.join('; then '),
           command,
@@ -531,6 +595,24 @@ export function engineRepoChecks() {
               remedy: `${cliOf(ctx)} doctor --fix (or re-run the bootstrap)`,
               data: { ...data, fix: { kind: 'hook-wrong' } },
             });
+          }
+          // ARC-09-C231 — the citation hook, read the same way and cured by the same writer, but a WARN: without it the
+          // session keeps its Licence: line, and what it loses is the check of the citations it writes under clients/.
+          // ARC-09-C255 — and the two hooks ARC-09-C254 added, one after the other: the first that is absent or wrong is named.
+          for (const added of ADDED_HOOKS) {
+            const found = added.problems(settings, ctx.root);
+            if (!found.present) {
+              return warn(`.claude/settings.local.json has ${added.lacks}`, {
+                remedy: `${cliOf(ctx)} doctor --fix (or re-run the bootstrap)`,
+                data: { ...data, fix: { kind: 'hook-absent' } },
+              });
+            }
+            if (found.entry.length > 0) {
+              return warn(found.entry.join('; '), {
+                remedy: `${cliOf(ctx)} doctor --fix (or re-run the bootstrap)`,
+                data: { ...data, fix: { kind: 'hook-wrong' } },
+              });
+            }
           }
         }
         // The ok line SAYS WHY when "live" and "disabled" appear together, because that pair reads

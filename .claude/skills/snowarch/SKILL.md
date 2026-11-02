@@ -1,8 +1,8 @@
 ---
 name: snowarch
-description: Use when the user types Status, or runs /snowarch status, setup-instance or doctor. Produces the doctor's Mode line, an instance added in the user's terminal (credentials never pass through chat), or the health check with its remedies.
-argument-hint: "status | setup-instance [--resume] | doctor"
-allowed-tools: Bash(./snowarch status*), Bash(node tools/snowarch/bin/snowarch.mjs status*), Bash(./snowarch doctor*), Bash(node tools/snowarch/bin/snowarch.mjs doctor*), Bash(cat .local/bootstrap-state.json), Read, mcp__servicenow__snow_core_instances_reload, mcp__servicenow__snow_core_capabilities_read, mcp__servicenow__snow_core_instances_index, mcp__servicenow__snow_core_current_instance_read
+description: Use when the user types Status, or runs /snowarch status, setup-instance, doctor or finding. Produces the doctor's Mode line, an instance added in the user's terminal (credentials never pass through chat), the health check, or a masked finding.
+argument-hint: "status | setup-instance [--resume] | doctor | finding"
+allowed-tools: Bash(./snowarch status*), Bash(node tools/snowarch/bin/snowarch.mjs status*), Bash(./snowarch doctor*), Bash(node tools/snowarch/bin/snowarch.mjs doctor*), Bash(cat .local/bootstrap-state.json), Bash(node tools/snowarch/lib/finding.mjs *), Read, mcp__servicenow__snow_core_instances_reload, mcp__servicenow__snow_core_capabilities_read, mcp__servicenow__snow_core_instances_index, mcp__servicenow__snow_core_current_instance_read
 metadata:
   version: 2.0.0
 ---
@@ -12,16 +12,16 @@ metadata:
 ## Triggers
 
 **Keywords:** snowarch, status, mode, doctor, setup instance, add instance, health check, bootstrap
-state, capability flags, which instance.
+state, capability flags, which instance, finding, report a finding.
 
 **Fires:** On demand, when the user types `/snowarch <sub-command>` — and, model-invoked, when the
 user types the plain word `Status`, which `CLAUDE.md` §2 routes here.
 
-**Not this skill:** it configures and reports; it does not design. A ServiceNow design question goes
-to the roster. It never calls an MCP tool and never asks for a credential.
+**Not this skill:** it configures, reports and records findings; it does not design. A ServiceNow design
+question goes to the roster. It calls MCP tools only in `setup-instance --resume`, and never asks for a credential.
 
-The first word of the arguments selects the sub-command (`status` when none is given): `status`,
-`setup-instance` or `doctor`. `setup-instance` also accepts `--resume`.
+The first word of the arguments selects the sub-command (`status` when none is given):
+`status`, `setup-instance`, `doctor` or `finding`. `setup-instance` also accepts `--resume`.
 
 ## status
 
@@ -43,7 +43,7 @@ Also runs when the user simply types `Status` — the same branch, the same outp
 Mode: live — pdi (pdi) · preset custom · WRITE=on CMDB_WRITE=on SCRIPTING=on ATF=on NOW_ASSIST=on FLUENT=off · 399 tools (contract)
 Licence: missing
 Engine: snowarch 9.9.9 · contract deadbeefdead
-Docs: vendor/ServiceNowDocs @ aa447ce4ea80 (australia) · sparse
+Docs: vendor/ServiceNowDocs @ c10276e95345 (australia) · full
 Roster: 29 skills / 9 agents
 Instances: pdi (pdi, custom)
 Doctor: 15 ok, 0 warn, 1 fail (E-31) — quick run 2026-09-20 09:00 UTC · full report: ./snowarch doctor
@@ -53,7 +53,10 @@ Instances are the store's own records; nothing was probed.
 ```
 
 3. **The exit code is the doctor's verdict, not the command's health.** `1` means a check failed,
-   and the panel on the screen says which — report it as a finding, never as "the command failed".
+   and the panel on the screen says which — report it as a failed check, never as "the command failed".
+   A `1` is also the command's own fallback, a Mode line that says `doctor unavailable`: relay that
+   line as it is, with the cause it names. A `1` with neither a panel nor that line is the command
+   itself failing, usually one `error: status: …` line: relay it, and say the mode is unverified.
 4. **If it did not run at all** — no Node, or the launcher is not installed — say so and name the
    cause you actually observed, no other:
    `Mode: unverified — ./snowarch status did not run (<cause>); run ./bootstrap.sh (Windows: bootstrap.cmd)`.
@@ -221,3 +224,35 @@ configuration file by hand instead.
 
 <!-- ARC-08-S09: the doctor's own check ids, --fix semantics and the self-heal report shape extend
      THIS file in place. Never a second skill. -->
+
+## finding
+
+Records something the engine got wrong as a note in the engagement's own folder, and prints a masked copy and writes it
+to a file beside the note, for the user to send. The note stays on this machine; this skill sends nothing.
+
+1. **Ask which engagement the finding belongs to.** Offer no default. A finding about the product rather than a
+   client goes under a name the user chooses that the note will not use as a word: the masker masks the engagement's
+   name on its own and with its parts joined by a space, a hyphen, an underscore, a dot or nothing, and, when the
+   name has four letters or more, any word that begins with it, so not a common word such as `general`. Never
+   `_unfiled`: it holds design artefacts only.
+2. **The first time for an engagement, ask once for its other names**: its legal name, abbreviations and brands.
+   Keep them in `clients/<engagement>/findings/aliases.txt`, one per line, `#` for a comment. "None" is an answer.
+3. **Compose the note in the user's words**: what was asked, what happened, what was expected, the `Engine:` line
+   of `./snowarch status`, and today's date.
+4. Run `node tools/snowarch/lib/finding.mjs --next-name <engagement> <slug>` for a free path, with a slug that names the
+   problem, never the client, a person, a place or a system, because the file the user sends is named from it, and
+   **write the note there** with the Write tool. Claude Code's own permission flow governs the write; this skill grants
+   no write and promises no prompt.
+5. Run `node tools/snowarch/lib/finding.mjs <that path>`. **Print its output verbatim in your reply**: the tool result
+   is not what the user reads. Give what ran, the warnings, the masked text, the "Read before sending" list and the last
+   line, which names the masked copy's file or says it was not written, as plain text, with no code fence, no quotation
+   and no "the output is above". Nothing goes in place of it. The tool also writes that file, beside the note.
+6. Close with: Send that file to the person who issued your licence, never the note; copying from this window can lose
+   characters. When the last line says the copy was NOT written, there is no current file: close with that line instead.
+
+The masker cannot know people's names, places, company names or abbreviations it was not given, ticket keys in
+other systems, record numbers with fewer than 6 digits, or a credential written in plain words that no rule
+recognises; its "Read before sending" list says so every time. When its first line says the instance store was NOT
+read, the instance names were not masked by value either; when it says the credentials were NOT read, the store's
+usernames were not, and its secrets may not have been. Asked whether the copy is safe to send, say that it is masked,
+that those still need a reader, and which of the two its first line says was NOT read, if either was.
