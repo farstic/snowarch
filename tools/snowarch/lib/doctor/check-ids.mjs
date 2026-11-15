@@ -30,10 +30,21 @@
  * spawned at all and has no `checks` to read — so `1 warn` with nothing in brackets is a true line
  * there, where `1 warn (unknown)` would be a made-up one. Absence is reported as silence.
  */
-export function idsFor(checks, status) {
+export function idsFor(checks, status, { words = false } = {}) {
   const ids = (Array.isArray(checks) ? checks : [])
     .filter((c) => c && c.status === status)
     .map((c) => c && c.id)
     .filter((id) => typeof id === 'string' && id !== '');
-  return ids.length > 0 ? ` (${ids.join(', ')})` : '';
+  return ids.length > 0 ? ` (${ids.map((id) => (words && WORDS[id] ? `${id} ${WORDS[id]}` : id)).join(', ')})` : '';
 }
+
+/**
+ * A few plain words after an id, for the one line that has to say what it counts to somebody who has never seen the doctor.
+ *
+ * ARC-09-C271. A Windows end user's install ended `Health check (quick): 16 ok · 1 warn (E-31) · 0 fail`, and `E-31` told them nothing: it is
+ * the licence, which warns in its last days and which only they can act on (by asking for a renewal), where every other id's remedy is
+ * printed by the doctor. So the words are for that id alone. The doctor's own report, the status panel and the full DOCTOR line print the
+ * ids as they always did, and so does every id not listed here. The title of the check is not used: it is quoted verbatim by the status
+ * template, so it is not ours to shorten.
+ */
+const WORDS = Object.freeze({ 'E-31': 'the licence' });

@@ -1,3 +1,4 @@
+import type { AclTools } from '../store/acl.js';
 /**
  * The registry contract, shared with ARC-08's unified doctor.
  *
@@ -80,6 +81,11 @@ export interface CheckContext {
     storeEntry?: (label: string) => {
         flags?: Record<string, string | undefined>;
     } | undefined;
+    /**
+     * ARC-09-C272 — the Windows lock tools, injected for the reason `fluent` is: SV-02 reads who can read the store through them, and a test
+     * never runs icacls. Absent means the real ones for this process.
+     */
+    acl?: AclTools;
 }
 export interface Check {
     id: CheckId;

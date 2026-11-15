@@ -33,7 +33,7 @@ Python 3 (Mac/Linux) or PowerShell (Windows)** — no Pandoc, no Word, no `pytho
 | Capability | macOS | Windows | Linux |
 |---|---|---|---|
 | **Markdown → styled `.docx`** | Python 3.x (built-in / `brew install python`) → `md-to-docx.py` | PowerShell 5+ (built-in) → `md-to-docx.ps1` | Python 3.x → `md-to-docx.py` |
-| **`.drawio` → PNG** (client-ready figures) | `brew install --cask drawio` → `render-drawio.sh` | draw.io Desktop (`winget install JGraph.Draw.io` / [drawio.com](https://www.drawio.com/)) → run `draw.io.exe` CLI, or `render-drawio.sh` via Git Bash/WSL | draw.io Desktop / AppImage → `render-drawio.sh` |
+| **`.drawio` → PNG** (client-ready figures) | `brew install --cask drawio` → `render-drawio.sh` | draw.io Desktop zip, no administrator rights: the file ending `-windows.zip` from the [releases page](https://github.com/jgraph/drawio-desktop/releases), unpacked into `%LOCALAPPDATA%\Programs\drawio` → `render-drawio.sh` in Git Bash, which finds `draw.io.exe` there itself (the installer from [drawio.com](https://www.drawio.com/) also works, with administrator rights) | draw.io Desktop (`.deb`, `.rpm` or AppImage from the same releases page) → `render-drawio.sh` |
 | **`.docx` → PDF** (visual QA) | `brew install --cask libreoffice` → `render-pdf.sh` | Microsoft Word → `render-pdf-pages.ps1` | `apt install libreoffice` → `render-pdf.sh` |
 | **`.mmd` → SVG/PNG** (in-repo preview only) | Node.js 18+ (`brew install node`) → `render-diagrams.sh` | Node.js 18+ → `render-diagrams.ps1` | Node.js 18+ → `render-diagrams.sh` |
 
@@ -49,6 +49,13 @@ brew install --cask drawio        # .drawio -> PNG/SVG (render-drawio.sh)
 brew install --cask libreoffice   # .docx -> PDF for visual QA (render-pdf.sh)
 # Python 3 and Node.js are usually already present; if not: brew install python node
 ```
+
+### One-time install of draw.io (Windows, no administrator rights)
+
+Download the file whose name ends in `-windows.zip` from <https://github.com/jgraph/drawio-desktop/releases> and unpack it so that
+`draw.io.exe` sits in `%LOCALAPPDATA%\Programs\drawio`. Then run `scripts/render-drawio.sh` from Git Bash: it looks for `draw.io.exe`
+there, in `%LOCALAPPDATA%\Programs\draw.io` and `%PROGRAMFILES%\draw.io` (where the installers put it) and on PATH, and when it finds
+none it says so in these words. Nothing about a diagram leaves the computer.
 
 The Mermaid CLI (`mmdc`) is fetched on demand by `render-diagrams.sh` via `npx`; first run downloads
 `chrome-headless-shell` (`npx puppeteer browsers install chrome-headless-shell`).
@@ -84,9 +91,13 @@ scripts/render-pdf.sh clients/<client>/designs/MyDesign.docx
 On **Windows**, swap steps 3–4 for the PowerShell equivalents:
 
 ```powershell
-pwsh scripts/md-to-docx.ps1 -Src clients\<client>\designs\MyDesign.md -Out clients\<client>\designs\MyDesign.docx -FooterText "<Client> | Commercial in confidence"
-pwsh scripts/render-pdf-pages.ps1 clients\<client>\designs\MyDesign.docx
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\md-to-docx.ps1 -Src clients\<client>\designs\MyDesign.md -Out clients\<client>\designs\MyDesign.docx -FooterText "<Client> | Commercial in confidence"
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\render-pdf-pages.ps1 clients\<client>\designs\MyDesign.docx
 ```
+
+`powershell` is the Windows PowerShell 5.1 that every Windows 10 and 11 has, so PowerShell 7 (`pwsh`) is not a requirement.
+`md-to-docx.ps1` was checked under 5.1 on 12 November 2026 (a 12 KB document written without error, and the same document under 7.7
+was 12,222 bytes against 12,331 under 5.1). `render-pdf-pages.ps1` needs Word and has not been tested under 5.1 yet.
 
 ---
 
@@ -112,7 +123,7 @@ it lands, `README.md` at the repository root is the install narrative, and `npm 
 |---|---|---|
 | `md-to-docx.py` | Mac/Linux/Win | Markdown → styled `.docx` (navy title banner, blue-header zebra tables, inline code, shaded callouts, embedded PNGs, page-numbered footer). Pure Python stdlib — no deps. `--src --out --footer-text`. |
 | `md-to-docx.ps1` | Windows | Identical output via .NET/PowerShell. `-Src -Out -FooterText`. |
-| `render-drawio.sh` | Mac/Linux (Win via Git Bash/WSL) | Every `*.drawio` under a dir → PNG/SVG/PDF via draw.io Desktop CLI, **locally**. `[DIR] [FORMAT] [SCALE]`. |
+| `render-drawio.sh` | Mac/Linux/Windows (Git Bash) | Every `*.drawio` under a dir → PNG/SVG/PDF via draw.io Desktop CLI, **locally**. `[DIR] [FORMAT] [SCALE]`. |
 | `render-pdf.sh` | Mac/Linux | `.docx` (or `.md`) → PDF via LibreOffice headless, for visual QA. |
 | `render-pdf-pages.ps1` | Windows | `.docx` → PDF via Word, then rasterise pages. |
 | `render-diagrams.sh` / `.ps1` | all | `*.mmd` (Mermaid) → SVG/PNG for **in-repo preview** (uses `mermaid-theme.json`). Not for client `.docx`. |

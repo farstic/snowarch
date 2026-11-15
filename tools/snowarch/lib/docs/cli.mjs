@@ -11,8 +11,9 @@
 // be tested — which is the same lesson ARC-03-S09's bump script learned about doing work at import.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { syncCorpus, planRecipe, readAreas, inspect, resolveMode, SyncError, EXIT as SYNC_EXIT }
+import { syncCorpus, planRecipe, readAreas, inspect, resolveMode, SyncError, CORPUS_DIR, EXIT as SYNC_EXIT }
   from './sync.mjs';
+import { indexAfterSync } from './sync-index.mjs';
 import { verifyCitations, formatResult, EXIT } from './verify.mjs';
 import { verifyIdentifiers, formatIdentifiers } from './identifiers.mjs';
 import { verifyTables, formatTables } from './tables.mjs';
@@ -90,6 +91,11 @@ export function runDocs(argv, { spell = spellings() } = {}) {
       return (e.code);
     }
     const { completeness } = result;
+    // ARC-09-C263 — the names index of this pin, once the corpus is complete (sync-index.mjs); silent under --quiet and --json.
+    if (completeness.ok) {
+      indexAfterSync({ root, corpus: join(root, CORPUS_DIR), pin: config.docs.pin, cli: spell.cli,
+        say: quiet || asJson ? () => {} : console.log });
+    }
 
     if (asJson) {
       // The S06 shape, replacing S05's minimal placeholder: one description of the corpus, the same

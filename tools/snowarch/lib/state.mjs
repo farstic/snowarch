@@ -16,7 +16,7 @@
 // `/snowarch status` skill reads `mode` when the doctor cannot run. That is why `docs.mode` is
 // nested exactly where it is, and why the shape is versioned.
 import { createHash } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { EXIT_FAIL } from './exit.mjs';
 import { pathKey } from './path-key.mjs';
@@ -24,6 +24,7 @@ import { statePath as statePathOf, doctorCachePath as doctorCachePathOf }
   from './local-paths.mjs';
 import { isSecretKey, redact } from './redact.mjs';
 import { needSpell, spellings } from './launcher-spelling.mjs';
+import { makePrivateDir } from './private-dir.mjs';
 
 export const STATE_VERSION = 1;
 export const PRODUCT = 'snowarch';
@@ -243,7 +244,7 @@ export function saveState(root, state, { now = new Date() } = {}) {
   const p = statePath(root);
   // `dirname(p)`, not `join(root, '.local')`: the directory created is the one written to, so a
   // redirected state root cannot create one place and write to another.
-  mkdirSync(dirname(p), { recursive: true, mode: 0o700 });
+  makePrivateDir(dirname(p));
 
   const next = { ...state, updatedAt: now.toISOString() };
   const tmp = `${p}.tmp-${process.pid}`;

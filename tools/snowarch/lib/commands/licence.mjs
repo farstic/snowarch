@@ -25,7 +25,7 @@
  * Exit codes: the three read commands exit 0 when the licence is in force (`ok` or `expiring`) and 1
  * otherwise, so a script can ask; the owner's five exit 0 when they wrote what they said; 2 is usage.
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { generateKeyPairSync } from 'node:crypto';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
@@ -45,6 +45,7 @@ import {
 import {
   allowedPhrase, bannerLine, heldList, licenceStatus, listStale, readListCache, REFUSED, renewalSentence,
 } from '../licence/state.mjs';
+import { makePrivateDir } from '../private-dir.mjs';
 
 export const USAGE = (where) => {
   const cli = spellings(where).cli;
@@ -129,7 +130,7 @@ function outsideOnly(path, root, what) {
 
 /** Write a new file and never replace one: `wx` fails if it exists, after the check that says why. */
 function writeNew(path, text, mode = 0o600) {
-  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  makePrivateDir(dirname(path));
   writeFileSync(path, text, { mode, flag: 'wx' });
 }
 

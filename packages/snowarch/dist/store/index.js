@@ -4,9 +4,10 @@
  * Reading and writing the store. The server only ever reads; the wizard (ARC-07) and the
  * doctor's `--fix` (ARC-08) are the writers, through `saveStore` here.
  */
-import { chmodSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, statSync, writeSync, } from 'node:fs';
+import { chmodSync, closeSync, existsSync, fsyncSync, openSync, readFileSync, renameSync, rmSync, statSync, writeSync, } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { dirname, join } from 'node:path';
+import { isProductFolder, makePrivateDir, realAclTools } from './acl.js';
 import { parseStore } from './schema.js';
 import { maskPath, shellRemedy } from './paths.js';
 import { cliSpelling } from '../cli/tty.js';
@@ -157,9 +158,24 @@ export function updateInstance(path, label, patch) {
     saveStore(path, next);
     return { store: next };
 }
-export function saveStore(path, store) {
+const SEVERITY = { untouched: 0, 'not-windows': 0, private: 1, created: 2, locked: 3, failed: 4 };
+const worst = (a, b) => (SEVERITY[b.state] > SEVERITY[a.state] ? b : a);
+const fromEnsure = (e) => (e.state === 'locked' ? { state: 'locked', was: e.was }
+    : e.state === 'failed' ? { state: 'failed', reason: e.reason } : { state: 'private' });
+export function saveStore(path, store, options = {}) {
+    const acl = options.acl ?? realAclTools();
     const dir = dirname(path);
-    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const win = acl.platform === 'win32';
+    const fileExisted = existsSync(path);
+    // The folder: made as before, and locked when this call made it (the file made in it inherits the lock).
+    const made = makePrivateDir(dir, acl);
+    let outcome = win ? { state: 'untouched' } : { state: 'not-windows' };
+    if (win && made.created)
+        outcome = made.lock && !made.lock.ok ? { state: 'failed', reason: made.lock.reason } : { state: 'created' };
+    // A save REPLACES the file with one made in the folder, so it takes the folder's permissions: a file that was private in an open
+    // folder would come out open. Whether it was private is read before the replace, so the replacement can be made private again.
+    const wasPrivate = win && !made.created && fileExisted && options.lock !== 'always'
+        ? (() => { const r = acl.read(path); return r.ok && r.exposure.who.length === 0; })() : false;
     const tmp = join(dir, `.instances.json.tmp-${process.pid}-${randomBytes(6).toString('hex')}`);
     const fd = openSync(tmp, 'wx', 0o600);
     try {
@@ -178,4 +194,22 @@ export function saveStore(path, store) {
     }
     if (!isWindows)
         chmodSync(path, 0o600);
+    if (win && !made.created) {
+        if (!fileExisted) {
+            const l = acl.lock(path, { dir: false });
+            outcome = worst(outcome, l.ok ? { state: 'created' } : { state: 'failed', reason: l.reason });
+        }
+        else if (wasPrivate) {
+            const l = acl.lock(path, { dir: false });
+            outcome = worst(outcome, l.ok ? { state: 'private' } : { state: 'failed', reason: l.reason });
+        }
+        if (options.lock === 'always') {
+            // The file only when it was just locked above; otherwise the file as it came out of the replace, then the folder if it is ours.
+            if (fileExisted)
+                outcome = worst(outcome, fromEnsure(acl.ensurePrivate(path, { dir: false })));
+            if (isProductFolder(dir))
+                outcome = worst(outcome, fromEnsure(acl.ensurePrivate(dir, { dir: true })));
+        }
+    }
+    return { acl: outcome };
 }

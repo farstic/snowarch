@@ -34,6 +34,7 @@ import { describeNetworkEnv, formatFailure, probeReachability, reachabilityMenu 
 import { fillMeaning, fillRemedy } from '../servicenow/net-errors.js';
 import { probeAll, PROBE_FIELDS, probeFieldText, toLastProbe } from '../servicenow/probes.js';
 import { probeClientFor, probeOptionsFor } from '../servicenow/probe-client.js';
+import { nameList } from '../store/acl.js';
 import { loadStore, projectStorePath, resolveStorePath, saveStore } from '../store/index.js';
 import { STORE_VERSION, completeFlags } from '../store/schema.js';
 import { FLAG_NAMES, matchPreset } from '../utils/permissions.js';
@@ -365,7 +366,12 @@ export const storeLine = (path, platform = process.platform,
 // and which form it chose varied with whatever a test had set. The caller resolves the store path
 // already and knows what the project one is; making it an argument is how this stays a pure
 // function of its inputs, which every other line on this screen is.
-project) => {
+project, 
+// ARC-09-C272 — what the save did to the permissions (Windows only), so the line says who can read the file from what was done and
+// not from how Windows works. Absent, or `not-windows` where Windows was asked for, it keeps the sentence it had.
+acl, 
+// The shell the fix is spelled FOR (ARC-07-C38): `platform` alone renders POSIX on any machine whose SHELL is set.
+env = process.env) => {
     // ARC-08-C23 — the mask follows the PLATFORM ARGUMENT, not the running process. The line already
     // renders the Windows mode sentence when told `win32`; masking with POSIX rules at the same time
     // meant a function that had been given a platform honoured it in one half and ignored it in the
@@ -374,18 +380,24 @@ project) => {
     // ARC-07-W16 — `Store: ~/work/checkout/.local/instances.json (mode 0600, dir 0700)` was 112 columns
     // on a real path and said "mode 0600" to a reader who has no reason to know what that is. Both
     // halves are now the sentence a person needs: WHERE it went, and WHO can read it.
-    const modes = platform === 'win32'
-        ? 'permissions are inherited from the folder (Windows)'
-        : 'readable only by you (0600)';
+    const outcome = platform === 'win32' ? acl : undefined;
+    const failed = outcome?.state === 'failed';
+    const modes = platform !== 'win32'
+        ? 'readable only by you (0600)'
+        : outcome && ['created', 'private', 'locked'].includes(outcome.state)
+            ? 'readable only by you'
+            : failed ? null : 'permissions are inherited from the folder (Windows)';
     // THE RELATIVE FORM IS ONLY TRUE FOR THIS CHECKOUT'S STORE, and `--global` writes
     // `~/.config/snowarch/instances.json`, which is not in this folder at all — so the two cases say
     // different things rather than one convenient thing. Measured: `resolveStorePath({ global: true })`
     // is what `runAdd` uses under that flag. The relative spelling is DERIVED from the path's own last
     // two segments, never spelled here, so a store that moves cannot leave this line describing the
     // old place.
+    const note = aclNote(outcome, platform, env, path === project);
+    const tail = (note ? `\n${note}` : '');
     if (path === project) {
-        const tail = path.split(/[\\/]/).slice(-2).join(sepChar);
-        return `Saved to ${tail} in this folder — ${modes}.`;
+        const where = path.split(/[\\/]/).slice(-2).join(sepChar);
+        return `Saved to ${where} in this folder${modes ? ` — ${modes}` : ''}.${tail}`;
     }
     // ANY OTHER STORE GETS THE PATH ON ITS OWN LINE, and the budget case is what found this: a store
     // that is neither this checkout's nor under the reader's home is not masked to `~`, and one inside a
@@ -394,8 +406,38 @@ project) => {
     // takes the next, whole. `--global` normally masks to `~/.config/snowarch/instances.json` and would
     // have fitted; the case used a real deep path instead of the short one, which is the only reason
     // this was found rather than shipped.
-    return `Saved to this file — ${modes}:\n${maskPath(path, { sepChar })}`;
+    // THE PLAIN "readable only by you" GOES IN PARENTHESES HERE, because this line ends in a colon and a colon after a letter is what the width rule
+    // (ARC-07-C41, on the wizard's own output) reads as a field name with no value. The POSIX line ends `(0600):` and passes for that reason alone;
+    // `you:` did not, on the first Windows run of C272. The line that carries no permission phrase (a lock that failed) stays `Saved to this file:`;
+    // the same rule would flag it, no wizard case produces it, so its text is pinned in store-line-acl.test.ts instead.
+    const lead = modes === 'readable only by you' ? `Saved to this file (${modes})` : `Saved to this file${modes ? ` — ${modes}` : ''}`;
+    return `${lead}:\n${maskPath(path, { sepChar })}${tail}`;
 };
+/**
+ * ARC-09-C272 — the sentence for a permission change a person did not ask for by name: what the file or its folder was open to and that it
+ * was changed, or that it could not be made private. Null when there is nothing to say (made private as it was created, or already so).
+ * Folded to the screen's width; the line it follows is not.
+ */
+export function aclNote(outcome, platform = process.platform, env = process.env, 
+// Whether this is the checkout's own store, whose repair is the doctor's fixer (`doctor --fix`); any other store gets the line the doctor prints.
+fixerApplies = true) {
+    if (platform !== 'win32' || !outcome)
+        return null;
+    if (outcome.state === 'locked') {
+        const text = outcome.was && outcome.was.who.length > 0
+            ? `It was open to ${nameList(outcome.was.who)}; its permissions were changed just now.`
+            : 'Its permissions were changed just now.';
+        return wrapText(text, COLUMNS).join('\n');
+    }
+    if (outcome.state === 'failed') {
+        // NEVER A REASON TO STOP: the store is saved, and what could not be done is said in words with the one command that tries again. icacls can
+        // fail on a locked-down machine, for an account it cannot resolve, or on a network home folder; none of those is a reason to lose a credential.
+        const cli = cliSpelling(platform, env);
+        const next = fixerApplies ? `${cli} doctor --fix tries again, and ${cli} doctor says who can read it.` : `${cli} doctor gives a line to run by hand.`;
+        return wrapText(`Its permissions could not be restricted (${outcome.reason}), so other accounts on this computer may be able to read it. The store is saved. ${next}`, COLUMNS).join('\n');
+    }
+    return null;
+}
 /**
  * Why the authentication step did not ask. Named from what was actually observed, never a default sentence.
  *
@@ -997,7 +1039,9 @@ export async function runAdd(options, terminal, deps = {}) {
         ...(isDefault ? { defaultInstance: label } : store.defaultInstance ? { defaultInstance: store.defaultInstance } : {}),
         instances: { ...store.instances, [label]: entry },
     };
-    saveStore(storePath, next);
+    // ARC-09-C272 — a credential is being stored: the file, and the product's own folder, are made private whatever they were, and what that
+    // changed is said below.
+    const written = saveStore(storePath, next, { lock: 'always', ...(deps.acl ? { acl: deps.acl } : {}) });
     const masked = maskEntry(entry);
     const warnings = gate.warning ? [gate.warning] : [];
     if (options.json) {
@@ -1026,7 +1070,7 @@ export async function runAdd(options, terminal, deps = {}) {
     for (const line of wrapFields(probeSummary(probeResult?.last ?? null, masked.flags, options.noProbes === true), COLUMNS)) {
         io.write(`${line}\n`);
     }
-    io.write(`${storeLine(storePath, platform, projectStorePath())}\n`);
+    io.write(`${storeLine(storePath, platform, projectStorePath(), written.acl, env)}\n`);
     // The warning is REPEATED after the save, not only before it: the line that matters is the one
     // still on screen when the command ends.
     for (const w of warnings)
@@ -1310,11 +1354,11 @@ function findInstance(opened, label) {
     return { ok: true, entry };
 }
 /** Save one changed entry, leaving every other byte of the store as it was. */
-function writeEntry(opened, label, entry) {
-    saveStore(opened.path, {
+function writeEntry(opened, label, entry, options = {}) {
+    return saveStore(opened.path, {
         ...opened.store,
         instances: { ...opened.store.instances, [label]: entry },
-    });
+    }, options);
 }
 function audit(entry) {
     appendAudit(entry);
@@ -1510,10 +1554,15 @@ export async function runSetCredentials(options, io, deps = {}) {
             // Changing the METHOD drops the other method's fields rather than leaving them beside the
             // new ones: a `basic` entry carrying a stale `clientSecret` is a secret nobody will think
             // to rotate.
-            writeEntry(opened.opened, label, { ...entry, auth, lastProbe: storedProbe(last) });
+            // ARC-09-C272 — a credential is being stored: the file, and the product's own folder, are made private whatever they were.
+            const written = writeEntry(opened.opened, label, { ...entry, auth, lastProbe: storedProbe(last) }, { lock: 'always', ...(deps.acl ? { acl: deps.acl } : {}) });
             audit({ ts: at, instance: label, environment: entry.environment, tool: null, actor: 'cli',
                 action: 'set-credentials', result: 'ok' });
             io.write(`${credentialsUpdated(label)} ${probeSummary(last, completeFlags(entry.flags), false)}\n`);
+            // Said only when the permissions were changed, or could not be: a store that was private and stays so has nothing to report.
+            const note = aclNote(written.acl, deps.platform ?? process.platform, env, opened.opened.path === projectStorePath());
+            if (note)
+                io.write(`${note}\n`);
             return EXIT_OK;
         }
         if (all.auth.status === 'unreachable') {

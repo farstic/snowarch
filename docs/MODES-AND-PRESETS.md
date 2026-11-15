@@ -57,7 +57,9 @@ sub-command changes these two; edit the store entry if you need a different `max
   instance.
 - **FLUENT** (`FLUENT_ENABLED`) — the ServiceNow SDK (Fluent) build and deploy tools; needs `@servicenow/sdk` on `PATH`
   (install it globally: `npm i -g @servicenow/sdk` — the doctor checks `PATH`, so a checkout-local install does not
-  count; see `docs/TROUBLESHOOTING.md`), and deploys also need WRITE.
+  count; see `docs/TROUBLESHOOTING.md`), and deploys also need WRITE. On Windows npm puts a global tool in `%APPDATA%\npm`,
+  which has to be on `PATH` for `now-sdk` to be found, and a window sees a changed `PATH` only once it is reopened
+  ([INSTALL-WINDOWS.md](INSTALL-WINDOWS.md), Step 2b, adds the folder).
 
 **The dependency rule**, enforced in the wizard and again in the server: `SCRIPTING_ENABLED` and `CMDB_WRITE_ENABLED`
 are writes, so declaring either without `WRITE_ENABLED` is a contradiction, resolved towards *less* access — the
@@ -197,8 +199,8 @@ it — rewriting a path you named would point the command somewhere you did not 
 risk: a 0600 file is unreadable wherever it sits, so what a directory bit buys an attacker is group or world **write**
 — replacing the file, or planting a symlink where it was. So group/world writable **without** the sticky bit is
 refused; with it (1777, as `/tmp` is) or with any other group/world bit the store loads with a warning; 0700 is
-silent. On Windows the check is skipped (`file modes: ACL-inherited (Windows)`): the POSIX bits Node reports there are
-synthetic, and asserting on them would fail for a protected file.
+silent. On Windows the POSIX bits Node reports are synthetic, so SV-02 reads the ACL (ARC-09-C272) and names anyone but the account,
+SYSTEM and Administrators who can read the store; the product locks what it creates, a stored credential and `doctor --fix` (F9) the rest.
 
 Writes are atomic — temp file, `fsync`, `rename` — so a reader never sees a half-written store, and paths in logs are
 masked (home to `~`, the checkout to `<checkout>`) because a log line reaches screen shares and support tickets.

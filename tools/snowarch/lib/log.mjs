@@ -1,11 +1,12 @@
 // Copyright 2026 Cvetomir Grigorov. Licensed under the Business Source License 1.1 (see LICENSE).
 // snowarch — AI ServiceNow Architect. Not affiliated with or endorsed by ServiceNow, Inc.
 // ARC-06-S02 — the only way this CLI writes anything, so redaction cannot be forgotten.
-import { appendFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { appendFileSync, existsSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { redact } from './redact.mjs';
 import { root } from './config.mjs';
 import { logsDir } from './local-paths.mjs';
+import { makePrivateDir } from './private-dir.mjs';
 
 const KEEP = 10;
 
@@ -59,7 +60,7 @@ export function createLogger({ command, quiet = false, verbose = false, json = f
     if (held !== null) { held.push(line); return; }
     if (file === null) {
       try {
-        mkdirSync(dir, { recursive: true, mode: 0o700 });
+        makePrivateDir(dir);
         file = join(dir, `${command}-${stamp(now)}.log`);
         appendFileSync(file, '', { mode: 0o600 });
         rotate();

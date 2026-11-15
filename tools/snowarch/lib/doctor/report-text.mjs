@@ -121,8 +121,10 @@ export function summaryLine(summary, checks = null, { quick = false, cli } = {})
     throw new TypeError('summaryLine needs a `cli` spelling (the third argument\'s `cli` key) — '
       + 'this module is pure of the environment and cannot read one');
   }
-  const parts = [`${summary.ok} ok`, `${summary.warn} warn${idsFor(checks, 'warn')}`,
-    `${summary.fail} fail${idsFor(checks, 'fail')}`];
+  // ARC-09-C271 — the quick line is B09's closing line and nobody else's (the report and the panel never ask for `quick`), so it is the
+  // one place the licence's id is followed by its name; see `WORDS` in check-ids.mjs for why only that id.
+  const parts = [`${summary.ok} ok`, `${summary.warn} warn${idsFor(checks, 'warn', { words: quick })}`,
+    `${summary.fail} fail${idsFor(checks, 'fail', { words: quick })}`];
   // ARC-07-W17 — `cli` HAS NO DEFAULT, and that is the row's rule rather than an oversight. A POSIX
   // default would be the literal this sweep removes, and it would render the wrong spelling on Windows
   // for any caller that forgot to pass one — silently, because the line still reads plausibly. Absent,

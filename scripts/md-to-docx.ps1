@@ -30,7 +30,7 @@
   Optional left-hand footer text (e.g. "<Client> | Commercial in confidence"). Keep client names OUT of committed/shared markdown — pass them here per engagement instead. Page numbers ("Page X of Y") are always shown at the right. Default: none.
 
 .EXAMPLE
-  pwsh scripts/md-to-docx.ps1 -Src clients/acme/proposals/proposal.md -Out clients/acme/proposals/proposal.docx -FooterText "ACME | Commercial in confidence"
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts\md-to-docx.ps1 -Src clients\acme\proposals\proposal.md -Out clients\acme\proposals\proposal.docx -FooterText "ACME | Commercial in confidence"
 
 .NOTES
   Verify the result visually with scripts/render-pdf-pages.ps1 (open the .docx in Word, export to PDF, rasterise). Windows / PowerShell. Author: ServiceNow Architecture Engine.

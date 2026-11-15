@@ -13,11 +13,13 @@
 // A missing draw.io is a fact for whoever is about to author a client deliverable, not a fault in
 // the install, so it never reaches `warn` and can never fail a run.
 import { existsSync } from 'node:fs';
+import { win32 as winPath } from 'node:path';
 
 import { checkClaudeCode, checkGit, makeExec } from '../../steps/B00.mjs';
 import { loadState, loadStateOrReason } from '../../state.mjs';
 import { meetsFloor, formatVersion } from '../../versions.mjs';
 import { which } from '../../which.mjs';
+import { remedyFor } from '../../remedies.mjs';
 import { defineCheck } from '../registry.mjs';
 
 import { fail, fromStep, ok } from './result.mjs';
@@ -30,6 +32,9 @@ import { spellFor } from '../spell.mjs';
  * diagram", and a doctor that reported `yes` from a different list would be answering a question
  * nobody asked. The Windows candidates come from `scripts/render-diagrams.ps1` — note the real
  * file is `render-diagrams.ps1`, not the `render-drawio.ps1` that `01` §13 names.
+ *
+ * These are the FIXED places. On Windows the renderer also tries the folders its variables name,
+ * which `drawioCandidates` adds in front of the fixed ones (ARC-09-C273).
  */
 export const DRAWIO_CANDIDATES = Object.freeze({
   posix: [
@@ -42,6 +47,23 @@ export const DRAWIO_CANDIDATES = Object.freeze({
     'C:\\Program Files (x86)\\draw.io\\draw.io.exe',
   ],
 });
+
+/**
+ * Where draw.io Desktop is looked for on this machine. Outside Windows, the fixed places. On Windows, first the three
+ * folders `scripts/render-drawio.sh` takes from the variables Windows sets — the zip and the per-user installer under
+ * `%LOCALAPPDATA%\Programs`, and `%PROGRAMFILES%` — then the fixed places. A variable that is unset or empty adds none.
+ * Spelled with Windows separators whatever the machine running this, so a case can drive it from anywhere (ARC-09-C273).
+ */
+export function drawioCandidates({ platform, env }) {
+  if (platform !== 'win32') return DRAWIO_CANDIDATES.posix;
+  const local = env.LOCALAPPDATA;
+  const files = env.PROGRAMFILES;
+  return [
+    ...(local ? [winPath.join(local, 'Programs', 'drawio', 'draw.io.exe'), winPath.join(local, 'Programs', 'draw.io', 'draw.io.exe')] : []),
+    ...(files ? [winPath.join(files, 'draw.io', 'draw.io.exe')] : []),
+    ...DRAWIO_CANDIDATES.win32,
+  ];
+}
 
 /** LibreOffice, per `scripts/render-pdf.sh`. On Windows the PDF proof is Word (`render-pdf-pages.ps1`). */
 export const SOFFICE_CANDIDATES = Object.freeze([
@@ -77,8 +99,7 @@ export function capabilityPacks({ env = process.env, platform = process.platform
   const pdf = win
     ? locate(['powershell', 'pwsh'], [], { env, platform, exists })
     : locate(['soffice'], SOFFICE_CANDIDATES, { env, platform, exists });
-  const drawio = locate(['drawio', 'draw.io'],
-    win ? DRAWIO_CANDIDATES.win32 : DRAWIO_CANDIDATES.posix, { env, platform, exists });
+  const drawio = locate(['drawio', 'draw.io'], drawioCandidates({ platform, env }), { env, platform, exists });
   const mermaid = locate(['mmdc'], [], { env, platform, exists });
   return {
     docx: { how: docx, need: win ? 'PowerShell 5.1+' : 'python3' },
@@ -172,8 +193,10 @@ export function enginePrereqChecks() {
         return passes
           ? ok(`${formatVersion(found) ?? version} (floor ${floor})`, data)
           : fail(`Node ${version} is below the floor ${floor}`, {
+            // The Windows part is the sentence remedies.json holds (ARC-09-C271 added the way that needs no administrator rights),
+            // not a copy of it: the launchers and the tables print that one.
             remedy: 'install Node 20+ (macOS: brew install node@22 · '
-              + 'Windows: winget install OpenJS.NodeJS.LTS · Linux: your distribution or nvm)',
+              + `Windows: ${remedyFor('node', { platform: 'win32' })} · Linux: your distribution or nvm)`,
             data,
           });
       },

@@ -39,7 +39,7 @@ terminal prints, formatted for reading:
 
 ```
 Mode: live — pdi (pdi) · preset pdi-developer · WRITE=on CMDB_WRITE=on SCRIPTING=on ATF=on NOW_ASSIST=off FLUENT=off · 398 tools (contract)   [modeLineDetailed]
-Licence: ok · LIC-2026-0002 · until 2027-10-31                                               [checks: E-31's data]
+Licence: ok · LIC-2026-0000 · until 2027-10-31                                               [checks: E-31's data]
 Engine: snowarch 2.0.0 · tag v2.0.0 · contract a1b2c3d                                       [engine.version, engine.tag, engine.contractSha]
 Docs: vendor/ServiceNowDocs @ ba513f2 (australia) · sparse · citations checked: 181 | dead: 0 [engine.docs]
 Roster: 29 skills / 9 agents                                                                 [engine.roster]

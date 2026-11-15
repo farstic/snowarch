@@ -22,6 +22,8 @@ import { spawnSync } from 'node:child_process';
 import { batchCommand } from './spawn-batch.mjs';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { findNativeClaude, offPathSentence } from './claude-install.mjs';
+import { remedyFor } from './remedies.mjs';
 import { childEnv } from './spawn-env.mjs';
 import { which } from './which.mjs';
 
@@ -33,6 +35,18 @@ export const CREATED_BY_US = 'created-by-snowarch';
 export const CLAUDE_ABSENT =
   'claude is not on PATH — --register needs the Claude Code CLI to write its own configuration '
   + '(install it from https://code.claude.com/docs/en/setup, then re-run)';
+
+/**
+ * ARC-09-C270 — why there is no `claude` to run. "Install it" is for a machine that does not have it; on one where the native installer
+ * has put it in ~/.local/bin (or %USERPROFILE%\.local\bin) and left that folder off PATH, the words are where it is and what to add to
+ * PATH, the same sentence and fix B00 and the upgrade's floor line give. The fix is last: it ends in a command.
+ */
+export function claudeAbsentReason({ env = process.env, plat = process.platform, exists = existsSync } = {}) {
+  const native = findNativeClaude({ env, plat, exists });
+  return native
+    ? `${offPathSentence(native.path)} — ${remedyFor('claudeCode', { platform: plat, variant: 'offPath' })}`
+    : CLAUDE_ABSENT;
+}
 
 /** R-13: the flags could be renamed upstream. This is what that failure should read like. */
 export const flagsChanged = (command, version) =>
@@ -229,8 +243,8 @@ function scopeWord(value) {
  * rule — our spawn, so `CLAUDE_PROJECT_DIR` is SET rather than inherited from whatever session
  * happens to be running this.
  */
-export function run(args, { root, claudePath, exec = spawnClaude, env = process.env } = {}) {
-  if (!claudePath) return { ok: false, status: null, reason: CLAUDE_ABSENT, stdout: '', stderr: '' };
+export function run(args, { root, claudePath, exec = spawnClaude, env = process.env, plat = process.platform, exists = existsSync } = {}) {
+  if (!claudePath) return { ok: false, status: null, reason: claudeAbsentReason({ env, plat, exists }), stdout: '', stderr: '' };
   const r = exec(claudePath, ['mcp', ...args], { cwd: root, env: childEnv(root, {}, env) });
   const stdout = String(r?.stdout ?? '');
   const stderr = String(r?.stderr ?? '');

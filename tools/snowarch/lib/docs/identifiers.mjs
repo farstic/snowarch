@@ -44,29 +44,15 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { loadContract, toolNames } from '../../../../packages/contract/lib/contract.mjs';
 import { SPARSE, sparseOf } from './status.mjs';
+import {
+  MARKER, PROPOSED, DECLARED, PLATFORM_PREFIXES, NAMESPACE_MIN, TOKEN, DOTTED, CUSTOM, PLACEHOLDER, bare, dotted, candidate,
+  pageNames, qualifiesWhole, markedAbsent, nameSpans,
+} from './name-rules.mjs';
 
-/** The one phrase that marks a platform name the corpus does not document. Checked on the line. */
-export const MARKER = 'not documented in the bundled corpus — verify on the instance';
+// ARC-09-C263 — the definitions moved to name-rules.mjs, a leaf; what this file exported it still does.
+export { MARKER, PROPOSED, PLATFORM_PREFIXES, NAMESPACE_MIN };
 
-/**
- * The phrase that declares an example's own proposal under a platform name — a table proposed in a
- * module's baseline scope, which the platform would name `sn_<module>_…`. It declares only the name
- * it is attached to — the one written immediately before it, with at most a closing backtick, spaces
- * and an opening parenthesis between (`` `sn_x_y` (proposed — not baseline) ``) — and that one
- * declaration covers the name's other sites in the file. Another name on the line gets nothing.
- */
-export const PROPOSED = 'proposed — not baseline';
-const DECLARED = new RegExp(`([A-Za-z0-9]+(?:_[A-Za-z0-9]+)+)\`?\\s*\\(?\\s*${PROPOSED}`, 'gi');
 
-/** First segments that make an absent name a claim about the platform. Each must begin a corpus name. */
-export const PLATFORM_PREFIXES = Object.freeze([
-  'change', 'chg', 'cmdb', 'cmn', 'csm', 'customer', 'em', 'hr', 'incident', 'kb', 'mid', 'service',
-  'sla', 'sn', 'snow', 'sys',
-  // The abbreviated namespaces. Each begins corpus tables (`sc_req_item`, `sa_pattern`, `ecc_agent`,
-  // `ast_contract`, `sysrule_assignment`), so a name that starts with one reads as a platform object.
-  'sc', 'sa', 'ecc', 'ast', 'alm', 'pa', 'wf', 'fm', 'ais', 'awa', 'asmt', 'm2m', 'imp', 'sp', 'oauth',
-  'sysapproval', 'sysevent', 'sysauto', 'syslog', 'sysrule',
-]);
 
 /** Why a tier-2 name may be absent from the corpus. Closed: a new reason is a change to this file. */
 export const REASONS = Object.freeze({
@@ -78,22 +64,11 @@ export const REASONS = Object.freeze({
   'example-name': 'any other name the example invents: a group, a metric, an index, a file, a value',
 });
 
-/**
- * A left part with fewer distinct dotted names in the corpus is a table written with a field
- * (`sn_hr_core_case.state`), not a namespace. Measured 2026-10-04: the tables the roster writes that
- * way reach 2 (`sn_hr_core_case`); `sn_si.` has 7; and four insurance scopes sit in the gap below the
- * line and are not looked up whole — `sn_ins_underwrite` (4), `sn_ins_uw_b2b`, `sn_ins_indiv_uw` and
- * `sn_ins_group_uw` (3 each).
- */
-export const NAMESPACE_MIN = 5;
 
 /** A `<stem>_*` site names a family: the corpus must hold this many names beginning `<stem>_`. A family of one is a name. */
 export const FAMILY_MIN = 2;
 
 const ALLOWLIST = new URL('./identifier-allowlist.json', import.meta.url);
-const TOKEN = /[A-Za-z0-9]+(?:_[A-Za-z0-9]+)+/g;
-const DOTTED = /[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+/g;
-const CUSTOM = /^(x|u)_/;
 const CAMEL_NAME = /^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+$/;
 // Two or more humps: `ChangeSchedule`, not `Account` or `ITSM`.
 const CAMEL = /\b[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+\b/g;
@@ -117,12 +92,6 @@ const BASELINE_LINE = /baseline|out[- ]of[- ]the[- ]box|\boob\b|\bships\b|built-
 const NOT_A_NAME = new Set(['md', 'json', 'mjs', 'js', 'ts', 'yml', 'html', 'css', 'csv', 'txt', 'png', 'svg', 'drawio', 'xml',
   'sh', 'pdf', 'docx', 'py', 'io', 'net', 'ink', 'com', 'org']);
 const FENCE = /^\s*```/;
-// The roster's placeholder prefix, one or more angle-bracket segments: `x_<vendor>_<app>_`.
-const PLACEHOLDER = /x_(?:<[^<>\s]+>_)+$/;
-// Leading and trailing underscores are markdown emphasis (`_sn_hr_core_`), not part of the name.
-const bare = (t) => t.toLowerCase().replace(/^_+|_+$/g, '');
-const dotted = (t) => t.toLowerCase().split('.').map((p) => p.replace(/^_+|_+$/g, '')).filter(Boolean).join('.');
-const candidate = (left) => left === 'com' || left === 'glide' || /^sn_[a-z0-9_]+$/.test(left);
 const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) =>
   e.isDirectory() ? walk(join(d, e.name)) : (e.name.endsWith('.md') ? [join(d, e.name)] : []));
 
@@ -266,22 +235,20 @@ export function corpusIndex(corpus, { words = new Set(), dotted: wantDotted = ne
   const spacedRe = wantSpaced.size ? new RegExp([...wantSpaced].sort((a, b) => b.length - a.length)
     .map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g') : null;
   for (const f of walk(join(corpus, 'markdown'))) {
-    const text = readFileSync(f, 'utf8').replace(/\\_/g, '_');
-    for (const m of text.matchAll(/[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*/g)) {
-      const parts = m[0].split('.');
-      for (const p of parts) {
-        const t = bare(p);
-        if (t.includes('_')) tokens.add(t);
-        else if (words.has(t)) seen.add(t);
-      }
-      if (parts.length > 1) {
-        const d = dotted(m[0]);
-        if (d.includes('.') && candidate(d.split('.')[0])) names.add(d);
-        if (wantDotted.has(d)) foundDotted.add(d);
-      }
+    const raw = readFileSync(f, 'utf8');
+    // ARC-09-C263 — the page's names come from the tokeniser in name-rules.mjs, the one the names index calls too.
+    const page = pageNames(raw, words);
+    for (const t of page.tokens) tokens.add(t);
+    for (const t of page.plain) seen.add(t);
+    for (const d of page.dotted) {
+      if (candidate(d.split('.')[0])) names.add(d);
+      if (wantDotted.has(d)) foundDotted.add(d);
     }
-    if (wantCamel.size) for (const m of text.matchAll(CAMEL)) if (wantCamel.has(m[0])) foundCamel.add(m[0]);
-    if (spacedRe) for (const m of spacedText(text).matchAll(spacedRe)) foundSpaced.add(m[0]);
+    if (wantCamel.size || spacedRe) {
+      const text = raw.replace(/\\_/g, '_');
+      if (wantCamel.size) for (const m of text.matchAll(CAMEL)) if (wantCamel.has(m[0])) foundCamel.add(m[0]);
+      if (spacedRe) for (const m of spacedText(text).matchAll(spacedRe)) foundSpaced.add(m[0]);
+    }
   }
   const namespaces = new Map();
   for (const d of names) {
@@ -391,7 +358,7 @@ export function verifyIdentifiers({ root = process.cwd(), corpusDir = 'vendor/Se
   const corpus = resolve(root, corpusDir);
   const none = () => ({ checked: 0, unexcused: [], scriptCode: 0, excused: 0 });
   if (!index && !existsSync(join(corpus, 'markdown'))) {
-    return { status: 'missing', checked: 0, classes: null, capitals: null, unexcused: [], excused: [], stale: [], deadPrefixes: [], allowErrors, reasons, dotted: none(), camel: none(), spaced: none() };
+    return { status: 'missing', checked: 0, classes: null, capitals: null, unexcused: [], excused: [], stale: [], deadPrefixes: [], allowErrors, reasons, dotted: none(), camel: none(), spaced: none(), strict: { checked: 0, printed: [] } };
   }
   // ARC-09-C244 — the guard is defined against the whole corpus, which is what an install has by default. A sparse
   // checkout holds only the cited areas: a name another area prints would read as unexcused there, and an excuse that
@@ -399,7 +366,7 @@ export function verifyIdentifiers({ root = process.cwd(), corpusDir = 'vendor/Se
   // list's own errors count. `shape` is the checkout's (`sparseOf`), given by a test.
   if (!index && [SPARSE.cone, SPARSE.pattern].includes(shape ?? sparseOf(corpus))) {
     return { status: 'sparse', checked: 0, classes: null, capitals: null, unexcused: [], excused: [], stale: [],
-      deadPrefixes: [], allowErrors, reasons, dotted: none(), camel: none(), spaced: none() };
+      deadPrefixes: [], allowErrors, reasons, dotted: none(), camel: none(), spaced: none(), strict: { checked: 0, printed: [] } };
   }
   const wants = rosterWants(roster);
   const idx = index ?? corpusIndex(corpus, wants);
@@ -414,10 +381,7 @@ export function verifyIdentifiers({ root = process.cwd(), corpusDir = 'vendor/Se
   // Names only, to excuse a mention of a tool. Whether the contract matches its pin is the contract
   // gate's question; this check must not fail on it.
   const toolSet = tools ?? new Set(toolNames(loadContract({ verifyPin: false })));
-  const qualifies = (whole) => {
-    const left = whole.split('.')[0];
-    return left === 'com' || left === 'glide' || (idx.namespaces.get(left) ?? 0) >= NAMESPACE_MIN;
-  };
+  const qualifies = (whole) => qualifiesWhole(whole, idx.namespaces);
   const families = new Map();
   const family = (stem) => {
     if (!families.has(stem)) families.set(stem, [...idx.tokens].filter((t) => t.startsWith(`${stem}_`)).length);
@@ -547,15 +511,48 @@ export function verifyIdentifiers({ root = process.cwd(), corpusDir = 'vendor/Se
         : (CAMEL_NAME.test(e.identifier) ? idx.foundCamel.has(e.identifier) : idx.has(e.identifier));
     if (found) stale.push({ file: e.file, identifier: e.identifier, why: 'the corpus has this name: remove the entry' });
   }
+  // ARC-09-C263 (M6) — the roster must not CALL "not documented" a name the corpus prints: the text a model reads must not teach a
+  // false absence. STRICT attribution (name-rules.mjs `markedAbsent`): the phrase follows the name's closing mark, or the name heads
+  // a table row that carries it. Only a subject the index can answer is looked up — a token, or a dotted name looked up whole; a
+  // table written with a field is looked up by its parts, which this index does not hold per page, so it is not checked here.
+  // Measured at the pin: 3 subjects are looked up (employment_status, sub_state, sn_aia_version), none printed by the corpus; the two
+  // `sn_hr_core_case.sub_state` sites are the by-parts case.
+  const strictArm = { checked: 0, printed: [] };
+  for (const abs of rosterFiles(root)) {
+    const file = relative(root, abs).split(sep).join('/');
+    let fenced = false;
+    readFileSync(abs, 'utf8').split(/\r?\n/).forEach((text, i) => {
+      if (FENCE.test(text)) { fenced = !fenced; return; }
+      if (fenced) return;
+      for (const sp of nameSpans(text)) {
+        if (!markedAbsent(text, sp)) continue;
+        const raw = sp.raw.replace(/\\_/g, '_');
+        let name;
+        let printed;
+        if (raw.includes('.')) {
+          const whole = dotted(raw);
+          if (!whole.includes('.') || CUSTOM.test(whole) || !qualifies(whole)) continue;
+          name = whole;
+          printed = idx.dotted.has(whole);
+        } else if (raw.includes('_')) {
+          name = bare(raw);
+          if (CUSTOM.test(name)) continue;
+          printed = idx.tokens.has(name);
+        } else continue;
+        strictArm.checked += 1;
+        if (printed) strictArm.printed.push({ file, line: i + 1, identifier: name, why: 'the roster calls it not documented, and the corpus prints it: use the corpus\'s page, or drop the marker' });
+      }
+    });
+  }
   const firsts = new Set([...idx.tokens].map((t) => t.split('_')[0]));
   const deadPrefixes = prefixes.filter((p) => !firsts.has(p));
   const bad = unexcused.length + dottedArm.unexcused.length + camelArm.unexcused.length + spacedArm.unexcused.length
-    + stale.length + deadPrefixes.length + allowErrors.length;
+    + stale.length + deadPrefixes.length + allowErrors.length + strictArm.printed.length;
   return {
     status: bad ? 'fail' : 'ok',
     checked: classes.found + classes.custom + classes.constant + classes.mixed + classes.absent + classes.qualified,
     classes, capitals: { constant: [...new Set(capitals.constant)].sort(), mixed: [...new Set(capitals.mixed)].sort() },
-    unexcused, excused, stale, deadPrefixes, allowErrors, reasons, dotted: dottedArm, camel: camelArm, spaced: spacedArm,
+    unexcused, excused, stale, deadPrefixes, allowErrors, reasons, dotted: dottedArm, camel: camelArm, spaced: spacedArm, strict: strictArm,
   };
 }
 
@@ -573,10 +570,13 @@ export function formatIdentifiers(r) {
   for (const u of [...r.unexcused, ...r.dotted.unexcused, ...r.camel.unexcused, ...r.spaced.unexcused]) {
     lines.push(`UNEXCUSED ${u.file}:${u.line} ${u.identifier} — ${u.why}`);
   }
+  const strict = r.strict ?? { checked: 0, printed: [] };
+  for (const p of strict.printed) lines.push(`STRICT ${p.file}:${p.line} ${p.identifier} — ${p.why}`);
   for (const s of r.stale) lines.push(`STALE ${s.file} ${s.identifier} — ${s.why}`);
   lines.push(`identifiers: checked ${r.checked} | unexcused ${r.unexcused.length}`);
   lines.push(`dotted names: checked ${r.dotted.checked} | unexcused ${r.dotted.unexcused.length} | script-code ${r.dotted.scriptCode}`);
   lines.push(`camelcase names: checked ${r.camel.checked} | unexcused ${r.camel.unexcused.length} | excused ${r.camel.excused}`);
   lines.push(`spaced names: checked ${r.spaced.checked} | unexcused ${r.spaced.unexcused.length} | excused ${r.spaced.excused}`);
+  lines.push(`strict marker subjects: checked ${strict.checked} | printed by the corpus ${strict.printed.length}`);
   return { text: lines.join('\n'), code: r.status === 'ok' ? 0 : 1 };
 }

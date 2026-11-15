@@ -9,12 +9,13 @@
 // It goes through the same write-time secret guard as the bootstrap state, and for the same reason:
 // a step three stories from now will have a probe result it wants to keep, and the obvious place to
 // put a URL is a `detail` string.
-import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { LEFT_OUT } from './doctor/left-out.mjs';
 import { doctorCachePath, doctorInputsPath, localDir, localPathFrom } from './local-paths.mjs';
 import { isSecretKey, redact } from './redact.mjs';
 import { writeJsonAtomic } from './settings-local.mjs';
+import { makePrivateDir } from './private-dir.mjs';
 
 /**
  * `.local/` follows `SNOWARCH_STATE_ROOT` (ARC-07-C43); everything else is a file in the repository.
@@ -145,7 +146,7 @@ export function writeDoctorCache(root, { mode, checks, engineVersion = null, con
   // a redactable value or an instance address fails the write rather than reaching a file that,
   // unlike the store, things read casually. A documentation URL is allowed through and stored.
   assertCacheStorable(payload, 'doctor-last');
-  mkdirSync(localDir(root), { recursive: true, mode: 0o700 });
+  makePrivateDir(localDir(root));
   // 0600: it names a configured instance and its probe results. Not a secret, but not the sort of
   // thing another account on a shared machine has any business reading either.
   writeJsonAtomic(cachePath(root), payload, { mode: 0o600 });
@@ -267,7 +268,7 @@ export function writeReportCache(root, report, { writer = 'doctor', now = new Da
     report: stored,
   };
   assertCacheStorable(payload, 'doctor-last');
-  mkdirSync(localDir(root), { recursive: true, mode: 0o700 });
+  makePrivateDir(localDir(root));
   writeJsonAtomic(cachePath(root), payload, { mode: 0o600 });
   const inputs = collectInputs(root);
   writeJsonAtomic(inputsPath(root), inputs, { mode: 0o600 });

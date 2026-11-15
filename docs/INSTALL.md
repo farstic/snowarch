@@ -19,8 +19,8 @@ Checked by the bootstrap, never installed by it.
 |---|---|---|
 | Everything | Claude **Sonnet** or a more capable model | the roster is validated on Sonnet; smaller models are not supported |
 | Everything | Claude Code ≥ **2.1.214**, logged in | 2.1.196 settled the `.mcp.json` approval semantics, 2.1.198 the hook placeholders, and 2.1.214 keeps the previous tool list when a refresh fails |
-| Everything | git ≥ **2.25** | cone-mode `sparse-checkout`, which is how the documentation corpus arrives |
-| Live mode only | Node.js ≥ **20** (22 LTS recommended, 24 tested) with npm on PATH | the MCP server's own floor |
+| Everything | git ≥ **2.34.1** | the oldest git the install was run on, which is the one Ubuntu 22.04 LTS ships; nothing older was tried |
+| Live mode only | Node.js ≥ **20** (22 LTS recommended; 20, 22 and 24 tested on Linux, macOS and Windows, 26 on Linux and Windows) with npm on PATH | the MCP server's own floor |
 | Windows | PowerShell 5.1 (built in) and **Git for Windows** | the launchers need no Git Bash — but Claude Code's Bash tool does, and the in-session skills (`/snowarch status`, `/snowarch setup-instance`) run through it |
 
 **Node.js is needed only for live mode.** Without it the install completes design-only and says so —
@@ -29,7 +29,7 @@ the doctor, the live wizard and the MCP server are what wait for Node.
 ### Path A — terminal first
 
 ```sh
-git -c advice.detachedHead=false clone --branch v2.2.5 https://github.com/farstic/snowarch.git && cd snowarch && ./bootstrap.sh
+git -c advice.detachedHead=false clone --branch v2.2.6 https://github.com/farstic/snowarch.git && cd snowarch && ./bootstrap.sh
 ```
 
 **The `--branch` is not optional, and it names a release.** A plain `git clone` checks out this repository's default branch, which is not a release line and is a long way behind — cloning it installs a development tree with none of the released fixes. The tag above is the current release, and it is written by the release itself, so this page never names a version that has not shipped. The `-c advice.detachedHead=false` is there because a release tag is a *tag*: without it
@@ -43,10 +43,12 @@ you have one.
 On Windows, three lines instead — or double-click `bootstrap.cmd` in the folder:
 
 ```bat
-git -c advice.detachedHead=false clone --branch v2.2.5 https://github.com/farstic/snowarch.git
+git -c advice.detachedHead=false clone --branch v2.2.6 https://github.com/farstic/snowarch.git
 cd snowarch
 .\bootstrap.cmd
 ```
+
+**On a Windows computer where you are not an administrator, or if you want every step explained** — the programs to install, the plan screen, the seven wizard questions and how to change an answer later — follow [Install on Windows](INSTALL-WINDOWS.md). It installs Git, Node.js, Claude Code and draw.io for your user only, one command at a time.
 
 Git for Windows 2.54 and 2.55 may also print `warning: refs/tags/<tag> <sha> is not a commit!` while the tag is
 checked out. It is harmless: a release tag is a tag object that points at the commit, and the checkout is at the
@@ -65,7 +67,7 @@ Five preflight checks print a line each on every path — git, Claude Code, disk
 ```
 [B00/09] preflight … ok (0.7 s)
 Installing the AI ServiceNow Architect into this folder only — nothing else on the machine changes.
-Two choices below, then it runs on its own (about a minute; live adds a short wizard).
+Two choices below, then it runs on its own (a few minutes; live adds a short wizard).
 Plan — Enter runs it as shown · type a number to choose that line's value · "?" explains · q quits
   1  Mode   design-only          live needs a ServiceNow instance (wizard runs in this terminal); Node 24.16.0 found
   2  Docs   full                 full = whole corpus · skip = none (the doctor will report FAIL)
@@ -103,11 +105,11 @@ and re-running resumes from that step rather than starting again.
 
 ### The licence
 
-From 2.0.13 the product checks for a licence from the author. Copy the file you were given to `.local/licence.json` in the checkout, under that name — a copy under its own name is not read — before or after the install, which runs without one, and restart Claude Code. From the checkout folder, with the file in Downloads (`LIC-2026-0002.json` stands for your file's name):
+From 2.0.13 the product checks for a licence from the author. Copy the file you were given to `.local/licence.json` in the checkout, under that name — a copy under its own name is not read — before or after the install, which runs without one, and restart Claude Code. From the checkout folder, with the file in Downloads (`LIC-2026-0000.json` stands for your file's name):
 
 ```
-cp ~/Downloads/LIC-2026-0002.json .local/licence.json                  # macOS or Linux
-Copy-Item "$HOME\Downloads\LIC-2026-0002.json" .local\licence.json     # Windows PowerShell
+cp ~/Downloads/LIC-2026-0000.json .local/licence.json                  # macOS or Linux
+Copy-Item "$HOME\Downloads\LIC-2026-0000.json" .local\licence.json     # Windows PowerShell
 ```
 
 `./snowarch licence check` shows its state, and names a licence it finds in `.local/` under another name with the command that renames it. Without a licence in force no tool runs, and no command but `licence`, `doctor`, `status`, `version`, `upgrade`, `bootstrap` and `mode design`.
@@ -129,9 +131,9 @@ mkdir my-engagement && cd my-engagement && claude
 Accept the workspace-trust dialog, then paste exactly this:
 
 > Install the AI ServiceNow Architect from https://github.com/farstic/snowarch into
-> this folder, from release tag v2.2.5.
+> this folder, from release tag v2.2.6.
 
-Claude runs two commands — `git -c advice.detachedHead=false clone --branch v2.2.5 https://github.com/farstic/snowarch.git .` and
+Claude runs two commands — `git -c advice.detachedHead=false clone --branch v2.2.6 https://github.com/farstic/snowarch.git .` and
 `./bootstrap.sh --mode design --yes --skip-claude-check` — asking your permission for each unless the
 session already allows them. They are written out here for a reason: if Claude proposes anything else
 — cloning into a *subfolder* is the common variation — paste them yourself and you are back on the
@@ -245,11 +247,12 @@ Every preflight failure prints its own remedy. These are those sentences:
 |---|---|---|
 | You are not at the checkout root | `cd "{root}" && ./bootstrap.sh` | `pushd "{root}"
 .\bootstrap.cmd` |
-| git is missing or too old | `xcode-select --install (or: brew install git)` | `winget install Git.Git` |
+| git is missing or too old | `xcode-select --install (or: brew install git)` | `winget install Git.Git, or without administrator rights: Git for Windows from git-scm.com, installed for your user only (docs/INSTALL-WINDOWS.md, step 2a)` |
 | Claude Code is missing or too old | `install Claude Code from https://code.claude.com/docs/en/setup, then re-run` | `install Claude Code from https://code.claude.com/docs/en/setup, then re-run` |
+| Claude Code is installed, but its folder is not on PATH | `add ~/.local/bin to your PATH with this line, then re-run (bash on macOS: ~/.bash_profile instead; https://code.claude.com/docs/en/troubleshoot-install): echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc` | `add that folder to your PATH with this PowerShell line, then open a new PowerShell window and re-run (https://code.claude.com/docs/en/troubleshoot-install): [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "User") + ";$env:USERPROFILE\.local\bin", "User")` |
 | Not enough disk space | `free up {needed} on {mount}` | `free up {needed} on {mount}` |
 | github.com is unreachable | `check your network, or set HTTPS_PROXY / NO_PROXY for your environment, and re-run` | `check your network, or set HTTPS_PROXY / NO_PROXY for your environment, and re-run` |
-| Node.js is missing or too old (live mode only) | `brew install node@22` | `winget install OpenJS.NodeJS.LTS` |
+| Node.js is missing or too old (live mode only) | `brew install node@22` | `winget install OpenJS.NodeJS.LTS, or without administrator rights: the Node.js zip from nodejs.org, in your user folder (docs/INSTALL-WINDOWS.md, step 2b)` |
 | A 32-bit Node.js build | `a 64-bit build of Node.js is recommended` | `a 64-bit build of Node.js is recommended` |
 <!-- /generated:remedies -->
 
@@ -277,7 +280,9 @@ made before 2.2.5, which fetched only the areas the specialists cite, moves to t
 its upgrade to 2.2.5: about 150 MB more on disk, measured from a default 2.2.4 install (20 areas).
 `--docs sparse` keeps only the cited areas (about 365 MB on disk) and exists for CI; the Architect cannot
 read the other areas then. Every release re-measures all three platforms and attaches the same table as
-`install-metrics.md` — [releases](https://github.com/farstic/snowarch/releases).
+`install-metrics.md` — [releases](https://github.com/farstic/snowarch/releases). The bootstrap also builds a
+names index of the whole corpus, which records which pages print a name: about 9 MB under
+`.local/corpus-names/`, about 15 seconds once for each docs pin, rebuilt by `docs sync` and `doctor --fix`.
 
 ### Upgrading
 
@@ -288,7 +293,7 @@ read the other areas then. Every release re-measures all three platforms and att
 
 Nothing is touched before the plan is printed and accepted: it names the release, the steps that
 will re-run, whether the store's schema moves (a migration, with a 0600 backup, announced first),
-and `credentials: untouched` — `.local/instances.json` is never read or written by an upgrade.
+and your instances: apart from that migration, the only field it writes is each one's `lastProbe`.
 Restart `claude` afterwards; the server binary changed. `--to vX.Y.Z` takes a specific release and
 prints how to return to your branch; a diverged branch is reported, and a file in the release's way is named; a failed
 fetch prints git's error and a [proxy](TROUBLESHOOTING.md#proxy_unreachable) or [TLS](TROUBLESHOOTING.md#tls_ca_untrusted)

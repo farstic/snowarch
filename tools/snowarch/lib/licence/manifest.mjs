@@ -28,7 +28,7 @@
  * and a user's own work lives under `clients/` and in project rules, never in the roster.
  */
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
+import { chmodSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import { releaseManifestPath } from '../local-paths.mjs';
@@ -36,6 +36,7 @@ import { signBody } from './core.mjs';
 import {
   COVERAGE, MANIFEST_FORMAT, hashBytes, isCovered,
 } from '../../../../packages/snowarch/dist/licence/integrity.js';
+import { makePrivateDir } from '../private-dir.mjs';
 
 /**
  * ARC-11-C141 — THE READING HALF IS THE SERVER BUILD'S, re-exported here so every engine caller keeps its import
@@ -164,7 +165,7 @@ export function archiveDiffers(root, tag, manifest, { run } = {}) {
 /** Write the cache whole, atomically, 0600, as the revocation list's cache is written. */
 export function writeManifestCache(root, { tag, doc, checkedAt, source }) {
   const path = releaseManifestPath(root);
-  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  makePrivateDir(dirname(path));
   const tmp = `${path}.tmp-${process.pid}`;
   writeFileSync(tmp, `${JSON.stringify({ tag, checkedAt, source, doc }, null, 2)}\n`, { mode: 0o600 });
   renameSync(tmp, path);

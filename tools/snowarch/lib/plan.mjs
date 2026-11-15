@@ -54,7 +54,9 @@ export const DOCS_OFFERED = Object.freeze([MODE.full, 'skip']);
  */
 export const ORIENTATION = Object.freeze([
   'Installing the AI ServiceNow Architect into this folder only — nothing else on the machine changes.',
-  'Two choices below, then it runs on its own (about a minute; live adds a short wizard).',
+  // ARC-09-C271 — "about a minute" was the claim until a Windows end user's install spent 147 s on the documentation alone (the whole corpus,
+  // 299 MB on disk) and about three and a half minutes in all before the wizard. A few minutes is the claim a slow network cannot make false.
+  'Two choices below, then it runs on its own (a few minutes; live adds a short wizard).',
 ]);
 
 export const HEADER =

@@ -11,8 +11,12 @@
 // (nothing downstream can be grounded); a dead CITATION does not — the corpus is present, the fix
 // belongs to a maintainer, and refusing to install over it would punish the wrong person.
 import { execFileSync } from 'node:child_process';
+import { join } from 'node:path';
 import { CORPUS_DIR, EXIT as DOCS_EXIT, MODE, SyncError, syncCorpus } from '../docs/sync.mjs';
 import { docsStatus } from '../docs/status.mjs';
+import { loadNamesIndex } from '../docs/names-index.mjs';
+import { indexAfterSync } from '../docs/sync-index.mjs';
+import { corpusNamesDir } from '../local-paths.mjs';
 import { verifyCitations } from '../docs/verify.mjs';
 import { CORPUS_TEXT } from './format.mjs';
 import { FILE, TEXT, ABSENT } from './inputs.mjs';
@@ -48,6 +52,20 @@ export function gitlink(root) {
 // inputs" in ten files is ten places to get the resume rule wrong, and no way to show a user the
 // set — the table is one answer, and `docs/ARCHITECTURE.md` renders from it.
 export const inputs = INPUTS.B02.resolve;
+
+/**
+ * ARC-09-C263 — B02 RUNS WHENEVER THE NAMES INDEX OF ITS PIN IS NOT HELD, whatever its inputs say. The index of the corpus's
+ * names (docs/names-index.mjs) is built after a sync. An install made before the index
+ * existed has a corpus at the pin and no index, and B02's inputs have not moved, so the runner would call it current. The index
+ * is B02's OUTPUT, not one of its inputs — hashed, it would read "wanted" before the sync that made it "held", and B02 would run
+ * again on the next bootstrap (B01's manifest, below it in this directory, is the same shape). The runner and the upgrade's
+ * plan both ask: `outputMissingOf`.
+ */
+export function outputMissing(ctx) {
+  const pin = ctx.config?.docs?.pin;
+  if (!pin || ctx.docs === 'skip') return false;
+  return loadNamesIndex(corpusNamesDir(ctx.root, pin), { pin }) === null;
+}
 
 /** The docs family's exit codes → a StepResult, with the remedy each one actually needs. */
 /**
@@ -98,6 +116,11 @@ export const run = async (ctx) => {
       detail: `${CORPUS_DIR} is incomplete after sync`, remedy: `run ${spell.cli} docs sync` };
   }
 
+  // ARC-09-C263 — the names index of this pin, built in a child once the corpus is complete (sync-index.mjs). A build that fails
+  // is said and warns this step; the corpus is there and the install is usable, and `doctor --fix` builds it.
+  const index = indexAfterSync({ root: ctx.root, corpus: join(ctx.root, CORPUS_DIR), pin: ctx.config.docs.pin,
+    say: (l) => ctx.line?.(l), cli: spell.cli });
+
   // The size line is `docsStatus`'s measurement, not a second walk of the tree.
   const status = docsStatus({ root: ctx.root, verify: false, measure: true });
   ctx.line?.(`[docs] ${status.fileCount.toLocaleString('en-US')} files · `
@@ -116,10 +139,10 @@ export const run = async (ctx) => {
   ctx.state.docs = { mode: result.mode, pin: ctx.config.docs.pin,
     ...(result.mode === MODE.sparse ? { optIn: true } : {}) };
 
-  if (citations.dead.length > 0) {
-    return { status: 'warn', data,
-      detail: `${citations.dead.length} dead citation(s) — see ${spell.cli} docs verify` };
-  }
+  const warnings = [];
+  if (citations.dead.length > 0) warnings.push(`${citations.dead.length} dead citation(s) — see ${spell.cli} docs verify`);
+  if (index.error) warnings.push(`the names index was not built — run ${spell.cli} doctor --fix`);
+  if (warnings.length > 0) return { status: 'warn', data, detail: warnings.join('; ') };
   return { status: 'ok', data,
     detail: `${result.mode}, ${result.areaCount} areas` };
 };

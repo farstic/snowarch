@@ -38,6 +38,7 @@ import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readdirSync, 
 import { dirname, isAbsolute, join, posix, relative, sep } from 'node:path';
 import { appendAudit } from '../audit/writer.js';
 import { cliSpelling } from '../cli/tty.js';
+import { makePrivateDir } from '../store/acl.js';
 import { verifyBody } from './core.js';
 import { PRODUCT_KEYS } from './keys.js';
 export const MANIFEST_FORMAT = 'snowarch-manifest/1';
@@ -71,7 +72,7 @@ export const COVERAGE = Object.freeze({
         'scripts/render-pdf-pages.ps1', 'scripts/md-to-docx.py', 'scripts/md-to-docx.ps1', 'scripts/mermaid-theme.json',
         'scripts/README.md', 'scripts/docs.mjs', 'scripts/gen-docs-areas.mjs',
         // The user's documentation, and the live-coverage ledger.
-        'docs/INSTALL.md', 'docs/USER-GUIDE.md', 'docs/MODES-AND-PRESETS.md', 'docs/TROUBLESHOOTING.md', 'docs/MIGRATION.md',
+        'docs/INSTALL.md', 'docs/INSTALL-WINDOWS.md', 'docs/USER-GUIDE.md', 'docs/MODES-AND-PRESETS.md', 'docs/TROUBLESHOOTING.md', 'docs/MIGRATION.md',
         'docs/PLATFORM-NOTES.md', 'docs/CHANGELOG.md', 'docs/CLIENT-ONBOARDING.md', 'docs/KEY-COMPROMISE.md',
         'docs/RELICENSING.md', 'docs/ARCHITECTURE.md', 'docs/validation/LIVE-COVERAGE.md',
     ]),
@@ -387,7 +388,7 @@ function writeVerdict(root, local, tag, manifest) {
         files[p] = stampOf(join(root, ...p.split('/'))) ?? '';
     const path = verdictPath(root, local);
     try {
-        mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+        makePrivateDir(dirname(path));
         const tmp = `${path}.tmp-${process.pid}`;
         writeFileSync(tmp, `${JSON.stringify({ format: VERDICT_FORMAT, tag, manifest: stampOf(manifestCachePath(root, local)) ?? '',
             coverage, files })}\n`, { mode: 0o600 });
@@ -440,7 +441,7 @@ const sleep = (ms) => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0
 /** Take `.local/integrity.lock` (R1): one restore at a time; a lock older than 30 s is a dead holder's. */
 function takeLock(root, local, now) {
     const path = lockPath(root, local);
-    mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+    makePrivateDir(dirname(path));
     const deadline = Date.now() + LOCK_WAIT_MS;
     for (;;) {
         try {
@@ -621,7 +622,7 @@ function restoreTree(root, tag, manifest, modified, { local, now, run, cli, proj
     const put = modified.filter((d) => d.why !== 'extra').map((d) => d.path);
     const extras = modified.filter((d) => d.why === 'extra').map((d) => d.path);
     try {
-        mkdirSync(folder, { recursive: true, mode: 0o700 });
+        makePrivateDir(folder);
         for (const d of modified.filter((x) => x.why === 'changed')) {
             const to = join(folder, ...d.path.split('/'));
             mkdirSync(dirname(to), { recursive: true });

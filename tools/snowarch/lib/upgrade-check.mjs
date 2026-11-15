@@ -14,9 +14,10 @@
  * with a `checkedAt` from last month is the honest answer "nothing has been checked lately", and
  * the FRESHNESS rule below is what turns it into silence rather than into a stale nudge.
  */
-import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { chmodSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { upgradeCheckPath } from './local-paths.mjs';
+import { makePrivateDir } from './private-dir.mjs';
 
 export const CACHE_FILE = join('.local', 'upgrade-check.json');
 
@@ -88,7 +89,7 @@ export function writeUpgradeCheck(root, { latestTag = null, localTag = null, loc
     source,
   };
   const path = cachePath(root);
-  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  makePrivateDir(dirname(path));
   const tmp = `${path}.tmp-${process.pid}`;
   writeFileSync(tmp, `${JSON.stringify(body, null, 2)}\n`, { mode: 0o600 });
   renameSync(tmp, path);

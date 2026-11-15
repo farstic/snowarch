@@ -16,6 +16,10 @@ import { bootstrapOf, cliOf, spellFor } from '../spell.mjs';
 import { docsStatus, E12_ABSENT, SPARSE } from '../../docs/status.mjs';
 import { defineCheck } from '../registry.mjs';
 import { isEngineeringCheckout } from '../../engineering-checkout.mjs';
+import { corpusNamesDir } from '../../local-paths.mjs';
+import { namesIndexState } from '../../docs/names-index.mjs';
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { restoreRemedy } from '../../licence/manifest.mjs';
 
 import { fail, ok, skip, warn } from './result.mjs';
@@ -260,6 +264,41 @@ export function engineDocsChecks() {
         return fail(`${c.dead.length} dead citation(s): ${lines.join('; ')}`, {
           remedy: `maintainer: fix the citation; users: ${cliOf(ctx)} docs sync`,
           data: { checked: c.checked, dead: c.dead.length, first: lines },
+        });
+      },
+    }),
+
+    // ARC-09-C263 (M8) — the names index of the corpus: which pages print a name. Built at docs sync, bootstrap B02 and `--fix`,
+    // never in a session, so a missing or old one is this check's finding; a WARN, because the install works without it.
+    defineCheck({
+      id: 'E-33',
+      section: 'docs',
+      title: 'grounding names index for the docs pin',
+      severity: 'warn',
+      quick: false,
+      network: false,
+      spawns: false,
+      fixable: true,
+      run: async (ctx) => {
+        const s = docsFor(ctx);
+        if (!s.present) return absent();
+        const pin = s.pin ?? ctx.config?.docs?.pin;
+        if (!pin) return skip('no docs pin recorded — see E-13', {});
+        const dir = corpusNamesDir(ctx.root, pin);
+        const parent = join(dir, '..');
+        const others = existsSync(parent) ? readdirSync(parent).filter((e) => e !== String(pin).slice(0, 12) && !e.includes('.tmp-')) : [];
+        const st = namesIndexState(dir, { pin, siblings: others });
+        const cli = cliOf(ctx);
+        if (st.state === 'ok') {
+          const m = st.meta;
+          return ok(`${String(pin).slice(0, 12)} · ${m.names.toLocaleString('en-US')} names · ${m.pages.toLocaleString('en-US')} pages · coverage ${m.coverage}`,
+            { state: 'ok', pin: String(pin).slice(0, 12), names: m.names, pages: m.pages, coverage: m.coverage });
+        }
+        const why = st.state === 'stale' ? 'built for another docs pin' : 'not built';
+        return warn(`${why} — run ${cli} doctor --fix`, {
+          remedy: `run ${cli} doctor --fix`,
+          command: `${cli} doctor --fix`,
+          data: { state: st.state, pin: String(pin).slice(0, 12), fix: { kind: 'names-index' } },
         });
       },
     }),

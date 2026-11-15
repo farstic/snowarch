@@ -23,9 +23,10 @@
  * "updated some incidents" answers nothing. The engine already had that string in its
  * transcript. The README says so.
  */
-import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, renameSync, statSync, unlinkSync, } from 'node:fs';
+import { appendFileSync, closeSync, existsSync, openSync, readFileSync, readSync, renameSync, statSync, unlinkSync, } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { logger } from '../utils/logging.js';
+import { makePrivateDir } from '../store/acl.js';
 import { maskPath, projectStorePath, resolveStorePath } from '../store/paths.js';
 /** Rotate at 10 MB, keeping three older files. */
 export const MAX_BYTES = 10 * 1024 * 1024;
@@ -86,7 +87,7 @@ export function appendAudit(entry) {
     if (file === null)
         return;
     try {
-        mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+        makePrivateDir(dirname(file));
         // Does the file end mid-line? A crash between the record and its newline leaves a partial
         // line, and appending straight onto it produces `{"ts":"tru{"ts":"2026-…}` — ONE corrupt
         // line that swallows the new record as well as the old. Found by the tailAudit test, which

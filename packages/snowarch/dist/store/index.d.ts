@@ -1,3 +1,4 @@
+import { type AclTools, type Exposure } from './acl.js';
 import { type Store, type StoreError } from './schema.js';
 export * from './paths.js';
 export * from './schema.js';
@@ -81,4 +82,42 @@ export declare function updateInstance(path: string, label: string, patch: Recor
 } | {
     unknownInstance: string;
 };
-export declare function saveStore(path: string, store: Store): void;
+/**
+ * What a save did to the permissions of the store, in the words the callers need (ARC-09-C272). Only Windows has any:
+ *
+ *   not-windows  nothing to do
+ *   created      the folder, or the file in a folder that was there, was made here and locked to the account and SYSTEM
+ *   private      a credential was being stored and the file and folder were already readable by no one else; nothing was changed
+ *   locked       a credential was being stored into what already existed and was open (to `was`); it is private now — said, not silent
+ *   untouched    a routine write into what existed, whose permissions were not the product's to change (or could not be read)
+ *   failed       a lock was needed and failed; the store IS written, and the reason is here
+ */
+export type StoreAclOutcome = {
+    state: 'not-windows';
+} | {
+    state: 'untouched';
+} | {
+    state: 'created';
+} | {
+    state: 'private';
+} | {
+    state: 'locked';
+    was: Exposure | null;
+} | {
+    state: 'failed';
+    reason: string;
+};
+export interface SaveStoreOptions {
+    /** The lock tools; the real ones for this process when absent. A test supplies its own. */
+    acl?: AclTools;
+    /**
+     * `created` (the default): lock what this call creates, and keep a file that was private private across the replace.
+     * `always`: a credential is being stored — make the file, and the folder when it is the product's own, private whatever they were,
+     * and report what that changed.
+     */
+    lock?: 'created' | 'always';
+}
+export interface SaveStoreResult {
+    acl: StoreAclOutcome;
+}
+export declare function saveStore(path: string, store: Store, options?: SaveStoreOptions): SaveStoreResult;

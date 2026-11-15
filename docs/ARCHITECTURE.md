@@ -346,12 +346,13 @@ sentence is built, not on the way to the terminal.
 
 ### B01 workspace and B07 Claude settings — what the bootstrap writes
 
-Four files, all of them gitignored, and **nothing outside the checkout**: `~/.claude.json` and
+Four files and an empty folder, all of them gitignored, and **nothing outside the checkout**: `~/.claude.json` and
 `~/.claude/settings.json` are never touched.
 
 | File | Written by | What goes in it |
 |---|---|---|
-| `.local/` (+ `logs/`) | B01 | 0700 on POSIX — an existing directory is chmodded, so a checkout bootstrapped before this rule stays private too. Windows records `fileModes: acl-inherited`. |
+| `.local/` (+ `logs/`) | B01 | 0700 on POSIX — an existing directory is chmodded, so a checkout bootstrapped before this rule stays private too. Windows records `fileModes: acl-inherited`, and a `.local/` that B01 creates is locked to the account and SYSTEM (`makePrivateDir`, ARC-09-C272). |
+| `clients/` | the bootstrap command, not a step | empty, made only when nothing is there and never touched when something is (a link or a file of that name is left alone; ARC-09-C265). It is the user's: an upgrade neither moves nor names it. |
 | `.local/bootstrap-state.json` | the runner | S03's schema v1 |
 | `.claude/settings.local.json` | B07 | **two array members and one hook entry, merged** |
 | `.local/config.json` | B07 | `{ version, mode, defaultInstance, registration, updatedAt }` |
@@ -581,7 +582,7 @@ every one of those and proves the grep is not vacuous.
 
 **Nothing is written twice.** The recipe is *sourced* from `tools/snowarch/launcher/docs-recipe.sh`;
 the sentences — remedies, the network vocabulary, the closing block — are generated into a marked
-region from `remedies.json`, `net-sentences.mjs` and `text.json`. `tests/launcher-parity.test.mjs`
+region from `remedies.json`, `net-sentences.mjs`, `claude-install.mjs` and `text.json`. `tests/launcher-parity.test.mjs`
 compares every one against its source, because this is the file that runs on machines with no Node
 to check it, and a drifted copy there would go unnoticed for a release.
 
@@ -1128,7 +1129,7 @@ diverge (P-16).
 |---|---|
 | `SV-00` | Node meets the declared floor of 20 |
 | `SV-01` | `dist/server.js` and `dist/contract.json` exist and parse; contract sha printed |
-| `SV-02` | Store resolution (source, masked path), schema, 0600/0700 modes (skipped on Windows, where permissions are ACL-inherited), cloud-sync warning |
+| `SV-02` | Store resolution (source, masked path), schema, 0600/0700 modes (on Windows the DACL instead: anyone besides the account, SYSTEM and Administrators who can read the file, or the product's own folder, is named; ARC-09-C272), cloud-sync warning |
 | `SV-03` | Per instance: bare-https URL, flags explicit, dependency-consistent, `toolPackage`, prod posture |
 | `SV-04` | Network probes — a declared interface with a stub that returns `skip`; ARC-07-S03 supplies the implementation. `--no-network` skips it explicitly |
 | `SV-05` | A real stdio handshake against `dist/server.js`: `initialize` + `tools/list`, names compared to `dist/contract.json`. Unconfigured mode expects the five core tools |
@@ -1276,6 +1277,7 @@ about one registry rather than several:
 | `E-14` | docs | docs family | — | — |
 | `E-15` | docs | corpus completeness | — | yes |
 | `E-16` | docs | citations | — | — |
+| `E-33` | docs | grounding names index for the docs pin | — | yes |
 | `E-17` | roster | roster from directory listing | yes | — |
 | `E-18` | roster | skill descriptions | yes | — |
 | `E-19` | contract | no retired tool names | — | — |
@@ -1301,7 +1303,7 @@ about one registry rather than several:
 | `SV-09` | server | store schema | — | — |
 <!-- /generated:doctor-checks -->
 
-**`--fix` repairs a closed list of seven drifts** (ARC-08-S06), and the list being closed is the
+**`--fix` repairs a closed list of drifts** (ARC-08-S06), and the list being closed is the
 feature: every entry is a class of drift with exactly one correct resolution and no information in
 it a human would supply differently. It prints the plan before it touches anything (principle 10),
 applies in the order below so a later repair sees an earlier one, reports each as `applied`,
@@ -1320,11 +1322,13 @@ REFUSED with the check's own command, and a grep test proves the module cannot r
 | `F3` | `head-off-pin` | check the corpus out onto the pin | `vendor/ServiceNowDocs` |
 | `F4` | `flags-incomplete` | state every flag explicitly | `.local/instances.json` |
 | `F5` | `store-mode` | restore the store directory mode | `.local/` |
+| `F9` | `store-acl` | lock the store folder to you and SYSTEM | `.local/` |
 | `F6` | `toggles-mismatch` | rewrite the mode toggles | `.claude/settings.local.json` |
 | `F6` | `hooks-disabled-by-bootstrap` | remove the bootstrap's hook toggle | `.claude/settings.local.json` |
 | `F6` | `hook-absent` | register the hooks | `.claude/settings.local.json` |
 | `F6` | `hook-wrong` | rewrite the hooks | `.claude/settings.local.json` |
 | `F8` | `integrity-restore` | put the signed files back | `the covered files E-32 names; what it replaces is kept in .local/integrity-removed/` |
+| `F10` | `names-index` | build the grounding names index | `.local/corpus-names/` |
 | `F7` | `cache-stale` | clear the stale doctor cache | `.local/doctor-last.json` |
 <!-- /generated:doctor-fixes -->
 
@@ -1682,5 +1686,5 @@ of `engine.config.json` |
 | D36 | `CLAUDE.md` gates on `mcp__<key>__` | E-20 | re-targeted to the generated rule file, the protocol page and both registrations |
 | D37 | tool-name currency against the rename map | E-19 | `retired-names.json` |
 
-**New checks with no old counterpart** (17): `E-06`, `E-11`, `E-29`, `E-31`, `E-32`, `E-15`, `E-18`, `E-21`, `E-22`, `E-30`, `E-25`, `E-26`, `E-28`, `SV-06`, `SV-07`, `SV-08`, `SV-09`.
+**New checks with no old counterpart** (18): `E-06`, `E-11`, `E-29`, `E-31`, `E-32`, `E-15`, `E-33`, `E-18`, `E-21`, `E-22`, `E-30`, `E-25`, `E-26`, `E-28`, `SV-06`, `SV-07`, `SV-08`, `SV-09`.
 <!-- /generated:doctor-mapping -->

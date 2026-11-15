@@ -25,11 +25,19 @@ export const CHECK_IDS = Object.freeze(Object.keys(TABLE).filter((k) => !k.start
  * An unfilled placeholder is an error rather than a brace printed at a user: `free up {needed} on
  * {mount}` is not a remedy, it is a bug with punctuation. The test asserts no cell ships a
  * placeholder that nothing supplies.
+ *
+ * ARC-09-C270 — a check can have a SECOND remedy for a second cause, held as a named object inside its row
+ * (`claudeCode.offPath`: Claude Code is installed and its folder is not on PATH), asked for with `variant`. It sits inside the row
+ * and not beside it because a row is a check, `CHECK_IDS` is the list of checks, and a cause of the same check is not one.
  */
-export function remedyFor(checkId, { platform = process.platform, values = {} } = {}) {
+export function remedyFor(checkId, { platform = process.platform, values = {}, variant = null } = {}) {
   const row = TABLE[checkId];
   if (!row) throw new Error(`no remedy for check "${checkId}" — add one to remedies.json`);
-  const sentence = row[platform] ?? row.default;
+  const cells = variant === null ? row : row[variant];
+  if (!cells || typeof cells !== 'object') {
+    throw new Error(`no ${variant} remedy for check "${checkId}" — add one to remedies.json`);
+  }
+  const sentence = cells[platform] ?? cells.default;
   const filled = sentence.replace(/\{(\w+)\}/g, (m, key) => (key in values ? String(values[key]) : m));
   const left = /\{(\w+)\}/.exec(filled);
   if (left) throw new Error(`remedy for "${checkId}" still has {${left[1]}} — nothing supplied it`);

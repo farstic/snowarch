@@ -591,7 +591,7 @@ place. Each says how it is known, because two of them are known differently.
 Windows launcher run. But Claude Code's own Bash tool *is* Git Bash, and the in-session skills
 (`/snowarch status`, `/snowarch setup-instance`) run `./snowarch …` through it — so **Git for
 Windows is required for the skills** even though the installer never touches it. It also satisfies
-the git ≥ 2.25 floor, which is why the prerequisites table asks for it once.
+the git ≥ 2.34.1 floor, which is why the prerequisites table asks for it once.
 
 **PowerShell 5.1, never 7.** 5.1 is what every Windows 10/11 has; requiring 7 would mean requiring
 an install before the installer runs. `bootstrap.ps1` is 5.1-clean (no `??`, no ternary, no

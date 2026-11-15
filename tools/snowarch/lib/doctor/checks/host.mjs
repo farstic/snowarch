@@ -94,6 +94,19 @@ export const STATUS_PATTERNS = Object.freeze([
   { kind: 'approved', approved: true, match: /Connected|Approved|^\s*[✔✓]/i },
 ]);
 
+/**
+ * ARC-09-C266 — THE REMEDY FOR `Pending approval (run \`claude\` to approve)`, in both modes.
+ *
+ * Claude Code says that, and says what to do, until `claude` has been started in the folder and its question about the project's MCP
+ * server has been answered. On a fresh install, before the first start, that is the first thing `./snowarch doctor` meets, and the
+ * remedy it printed could not clear it: `mode design` and `mode live` write the toggles (E-10), and Claude Code does not read them
+ * before it has been started in the folder (the S-01 record: the enable toggle is not honoured before trust). So the remedy is the
+ * start itself and the answer — No for a design-only install, Yes for a live one — and then the doctor again.
+ */
+export const firstStartRemedy = (cli, live) => (live
+  ? `start claude in this folder once and answer Yes to its question about the project's MCP server, then run ${cli} doctor again`
+  : `start claude in this folder once and answer No to its question about the project's MCP server, then run ${cli} doctor again`);
+
 export function classifyStatus(statusLine) {
   const text = String(statusLine ?? '');
   if (text.trim() === '') return { kind: 'unknown', approved: null };
@@ -300,16 +313,20 @@ export function hostChecks() {
           // registration it cannot work: `--register` defaults to "unchanged", so `mode design`
           // rewrites the toggles and leaves the `claude mcp` entry exactly where it was — the very
           // entry that keeps the server visible. The scope decides the sentence, and it is said once.
-          const remedy = entry.scope === 'local'
-            ? `${cliOf(ctx)} mode design --register project   (or: claude mcp remove `
-              + `${serverKey} -s local)`
-            : `${cliOf(ctx)} mode design`;
+          const remedy = kind === 'pending' ? firstStartRemedy(cliOf(ctx), false)
+            : entry.scope === 'local'
+              ? `${cliOf(ctx)} mode design --register project   (or: claude mcp remove `
+                + `${serverKey} -s local)`
+              : `${cliOf(ctx)} mode design`;
           return warn('server is not disabled in Claude Code although the recorded mode is '
             + 'design-only', { remedy, data });
         }
         if (live && approved !== true) {
-          return warn(`server is ${kind === 'rejected' ? 'rejected' : 'unapproved'} in Claude Code `
-            + 'although the recorded mode is live', {
+          const detail = `server is ${kind === 'rejected' ? 'rejected' : 'unapproved'} in Claude Code `
+            + 'although the recorded mode is live';
+          // ARC-09-C266 — pending is not rejected: no command clears it, the start of claude here does.
+          if (kind === 'pending') return warn(detail, { remedy: firstStartRemedy(cliOf(ctx), true), data });
+          return warn(detail, {
             remedy: `${cliOf(ctx)} mode live, then answer Yes once in claude (S-01)`,
             command: `${cliOf(ctx)} mode live`,
             data,

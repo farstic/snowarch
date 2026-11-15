@@ -18,7 +18,7 @@
  * notice print. It lives in `line.mjs`, a leaf the pure status panel can import, and is re-exported
  * here for every caller that already reads the state.
  */
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import { checkLicence, readList } from './core.mjs';
@@ -36,6 +36,7 @@ export { bannerLine, daysLeftPhrase, renewalSentence } from './line.mjs';
  */
 import { allowedCommand, CLI_ALLOWED, CLI_ALLOWED_FORMS, REFUSED, refusesCommand }
   from '../../../../packages/snowarch/dist/licence/gate.js';
+import { makePrivateDir } from '../private-dir.mjs';
 
 export { allowedCommand, CLI_ALLOWED, CLI_ALLOWED_FORMS, REFUSED, refusesCommand };
 
@@ -73,7 +74,7 @@ export function readListCache(root) {
  */
 export function writeListCache(root, { list = null, checkedAt, source }) {
   const path = revocationsPath(root);
-  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  makePrivateDir(dirname(path));
   const tmp = `${path}.tmp-${process.pid}`;
   writeFileSync(tmp, `${JSON.stringify({ checkedAt, source, list }, null, 2)}\n`, { mode: 0o600 });
   renameSync(tmp, path);

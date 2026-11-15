@@ -16,6 +16,7 @@ import { checkLocation, checkMode } from './instance-file.mjs';
 import { DOCS, buildPlan, runPlanScreen } from './plan.mjs';
 import { MODE } from './docs/sync.mjs';
 import { LAST, STEPS, interrupt, runSteps, stepById } from './steps/index.mjs';
+import { CLIENTS_DIR, ensureClientsDir } from './clients-dir.mjs';
 import { RESET_MESSAGE, StateError, emptyState, loadState, resetState, saveState } from './state.mjs';
 import { needSpell, spellings } from './launcher-spelling.mjs';
 import { licenceStatus } from './licence/state.mjs';
@@ -259,6 +260,12 @@ export async function bootstrapCommand({ flags, log, root = defaultRoot, argv = 
 
   const lines = [];
   const onLine = (line) => { lines.push(line); log.step(line); };
+
+  // ARC-09-C265 — the folder a first `Status` looks for. Made here, once the plan is accepted and every time after, because a step
+  // would have to be stale to reach an install made before this release (clients-dir.mjs says why it is not B01).
+  const clients = ensureClientsDir(root);
+  if (clients.error) onLine(`WARN ${CLIENTS_DIR}/ could not be made (${clients.error}); make it by hand, or the first engagement will`);
+  else if (!clients.existed) onLine(`${CLIENTS_DIR}/ made, empty: it is yours, and git ignores it`);
 
   // Shared with the runner so the handler can reach the child of the step that is mid-flight.
   const live = { child: null, step: null };

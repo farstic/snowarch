@@ -10,13 +10,14 @@
  */
 import { createHash } from 'node:crypto';
 import { accessSync, constants, existsSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join, parse, resolve } from 'node:path';
+import { basename, dirname, join, parse, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 import { instanceManager } from '../servicenow/instances.js';
 import { detectCloudSync } from '../store/index.js';
-import { maskPath, resolveStorePath } from '../store/paths.js';
+import { exposureSentence, isProductFolder, realAclTools } from '../store/acl.js';
+import { maskPath, resolveStorePath, underPrefix } from '../store/paths.js';
 import { CURRENT_SCHEMA_VERSION } from '../store/migrations/index.js';
 import { FLAG_NAMES, checkProdPosture } from '../utils/permissions.js';
 import { checkFluent } from '../servicenow/probes.js';
@@ -114,7 +115,15 @@ export const svStore = {
         // skip message, not a launcher, and nothing committed depends on it. What it shared with the
         // launcher defect is only the part that mattered here — undrivability.
         if (ctx.platform === 'win32') {
-            notes.push('mode check skipped (Windows: permissions are ACL-inherited, not POSIX bits)');
+            // ARC-09-C272 — the permissions are read, not skipped. A folder directly under C:\ hands BUILTIN\Users read and Authenticated Users
+            // modify to everything made in it, and this check reported ok for a basic-auth password every account on the computer could read.
+            if (existsSync(res.path)) {
+                const win = windowsStoreVerdict(res.path, res.source, ctx);
+                status = win.status;
+                notes.push(...win.notes);
+                remedy = win.remedy;
+                fix = win.fix;
+            }
         }
         else if (existsSync(res.path)) {
             const fileMode = statSync(res.path).mode & 0o777;
@@ -163,6 +172,50 @@ export const svStore = {
             ...(fix ? { fixable: true, data: { fix } } : { fixable: false }) };
     },
 };
+/**
+ * ARC-09-C272 — SV-02's Windows verdict: who besides the account, SYSTEM and Administrators can read the store file (and, when the folder is
+ * the product's own, the folder it sits in). Read from the DACL through `ctx.acl`, judged the way the POSIX branch judges a mode:
+ *
+ *   private → ok   ·   anyone else holds an allow entry → fail, naming them   ·   not readable → warn, never ok
+ *
+ * The repair for the checkout's own store is the doctor's explicit fixer (`doctor --fix`, which shows its plan first); anything else — the
+ * per-user store, a path an environment variable chose — gets one PowerShell line that works out the account itself, so no name and no SID
+ * is printed. A folder that is not the product's is not judged: it is the user's, and what matters about it is the file.
+ */
+function windowsStoreVerdict(path, source, ctx) {
+    const acl = ctx.acl ?? realAclTools();
+    const dir = dirname(path);
+    const ours = isProductFolder(dir);
+    const file = acl.read(path);
+    const folder = ours ? acl.read(dir) : null;
+    const unreadable = !file.ok ? file.reason : folder && !folder.ok ? folder.reason : null;
+    if (unreadable !== null) {
+        return { status: 'warn', notes: [`could not read the permissions (${unreadable})`], remedy: undefined, fix: null };
+    }
+    const exposed = [];
+    if (file.ok && file.exposure.who.length > 0)
+        exposed.push(['the file', file.exposure]);
+    if (folder?.ok && folder.exposure.who.length > 0)
+        exposed.push(['its folder', folder.exposure]);
+    if (exposed.length === 0) {
+        return { status: 'ok', notes: ['readable only by you (and SYSTEM and Administrators)'], remedy: undefined, fix: null };
+    }
+    const notes = exposed.map(([what, e]) => `${what}: ${exposureSentence(e)}`);
+    // The checkout's own store: the fixer locks `.local` as a folder, which its files inherit.
+    if (source === 'project' && ours && basename(dir) === '.local') {
+        return { status: 'fail', notes, remedy: `${cliSpelling(ctx.platform, ctx.env)} doctor --fix`, fix: { kind: 'store-acl', path: '.local' } };
+    }
+    // By hand: the folder when it is the product's own, the file otherwise. The home directory is written as `$env:USERPROFILE` so the line pastes
+    // and carries no account name; the account is worked out by the line itself, from whoami's SID.
+    const target = ours ? dir : path;
+    const home = ctx.env.USERPROFILE ?? '';
+    const rest = home ? underPrefix(target, home, '\\') : null;
+    const shown = rest === null ? target : `$env:USERPROFILE${rest.replace(/\//g, '\\')}`;
+    const flags = ours ? '(OI)(CI)F' : 'F';
+    const me = '"*$((whoami /user /fo csv /nh | ConvertFrom-Csv -Header n,s).s)';
+    return { status: 'fail', notes, fix: null,
+        remedy: `icacls "${shown}" /inheritance:r /grant:r ${me}:${flags}" "*S-1-5-18:${flags}"` };
+}
 // ─── SV-03 — per instance ────────────────────────────────────────────────────
 export const svInstances = {
     id: 'SV-03',

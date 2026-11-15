@@ -21,11 +21,12 @@ import { existsSync, statfsSync } from 'node:fs';
 import { arch, platform, release } from 'node:os';
 import { join, resolve } from 'node:path';
 import { EXIT_PREREQ } from '../exit.mjs';
+import { findNativeClaude, offPathSentence } from '../claude-install.mjs';
 import { pathKey } from '../path-key.mjs';
 import { remedyFor } from '../remedies.mjs';
 import { formatVersion, meetsFloor, parseVersion } from '../versions.mjs';
 import { CORPUS_DIR, MODE, RETRY_WAITS_MS, attemptSuffix } from '../docs/sync.mjs';
-import { corpusProbe, probeNetwork, probeRetryReason } from '../probe-net.mjs';
+import { TIMED_OUT, corpusProbe, probeNetwork, probeRetryReason } from '../probe-net.mjs';
 import { which } from '../which.mjs';
 import { INPUTS } from '../inputs.mjs';
 import { GB, gigabytes, megabytes } from '../size.mjs';
@@ -51,19 +52,34 @@ export const DISK_FULL = 1.5 * GB;       // a fresh whole corpus ≈ 490 MB on d
 const mb = (bytes) => `${megabytes(bytes)} MB`;
 const gb = (bytes) => `${gigabytes(bytes)} GB`;
 
+/** How long a tool has to answer a probe such as `--version`. Named (ARC-09-C269) because the words about an overrun say it. */
+export const PROBE_TIMEOUT_MS = 10_000;
+
 /**
  * Run a tool by its RESOLVED path.
  *
  * `which` first, then spawn the file — never a bare name, which on Windows sends `child_process`
  * through a shell to resolve `.cmd`, and never `npx`, which would reach the network from the step
  * whose job is to find out whether the network works.
+ *
+ * ARC-09-C269 — a tool that is on PATH and does not answer says WHY: `timedOut` (killed at the budget, Node's code for it and no
+ * status), `status` (the exit status, when it exited), `signal`, and `code` (what Node said when the file could not be started).
+ * `found && !ok` alone made a Claude Code that overran the budget read as one that is not installed.
+ *
+ * ARC-09-C270 — and the function carries `nativeInstall(name)`: where Claude Code's native installer would have put it (its own folder,
+ * which PATH may not name), when the file is there. A caller whose tool was not found asks it before it says to install the tool. It
+ * answers from THIS exec's `env`, `plat` and `exists`, so a test that hands in its own exec gets no answer and keeps the old words.
  */
 export function makeExec({ env = process.env, plat = process.platform,
   // The two seams, with the real implementations as defaults. `plat` alone is not enough to test
   // the Windows branch below: proving it needs a `.cmd` to resolve to and a spawn to observe, and
   // neither exists on the machines this suite mostly runs on.
-  resolve: resolveBin = which, exec: run = execFileSync } = {}) {
-  return (name, args) => {
+  resolve: resolveBin = which, exec: run = execFileSync,
+  // A third, for the one test that needs a real child to outlive the budget. The product never passes it.
+  timeoutMs = PROBE_TIMEOUT_MS,
+  // And the file system, for the native install's file (ARC-09-C270).
+  exists: fileExists = existsSync } = {}) {
+  const exec = (name, args) => {
     const bin = resolveBin(name, { env, platform: plat });
     if (!bin) return { found: false, ok: false, stdout: '', stderr: '' };
     try {
@@ -84,13 +100,19 @@ export function makeExec({ env = process.env, plat = process.platform,
       const useBatch = plat === 'win32' && isBatch(bin);
       const call = useBatch ? batchCommand(bin, args, { env }) : { file: bin, args, options: {} };
       const stdout = run(call.file, call.args,
-        { encoding: 'utf8', stdio: 'pipe', timeout: 10_000, ...call.options });
+        { encoding: 'utf8', stdio: 'pipe', timeout: timeoutMs, ...call.options });
       return { found: true, ok: true, stdout, stderr: '', bin };
     } catch (e) {
       return { found: true, ok: false, stdout: String(e.stdout ?? ''),
-        stderr: String(e.stderr ?? e.message ?? ''), bin };
+        stderr: String(e.stderr ?? e.message ?? ''), bin,
+        timedOut: e.code === TIMED_OUT,
+        status: typeof e.status === 'number' ? e.status : null,
+        signal: e.signal ?? null,
+        code: e.code ?? null };
     }
   };
+  exec.nativeInstall = (name) => (name === 'claude' ? findNativeClaude({ env, plat, exists: fileExists }) : null);
+  return exec;
 }
 
 const ok = (id2, detail, extra = {}) => ({ id: id2, status: 'ok', detail, ...extra });
@@ -143,6 +165,59 @@ export function checkGit({ exec, floors, plat }) {
   return ok('git', formatVersion(found));
 }
 
+/** The first line of what a failed call printed, as one printable line of at most 160 characters; '' when it printed none. */
+function firstLine(text) {
+  const first = String(text ?? '').split(/\r?\n/).map((l) => l.trim()).find(Boolean) ?? '';
+  // A colour code is ESC, `[`, parameters and a letter. Split on the ESC rather than match it, so no control character sits in a pattern.
+  const plain = first.split('\u001b').map((part, i) => (i === 0 ? part : part.replace(/^\[[0-9;?]*[A-Za-z]/, ''))).join('');
+  const line = Array.from(plain, (c) => (c < ' ' || c === '\u007f' ? ' ' : c)).join('').replace(/\s+/g, ' ').trim();
+  return line.length > 160 ? `${line.slice(0, 157)}...` : line;
+}
+
+/**
+ * ARC-09-C269 — `claude --version`, and when a Claude Code that IS on PATH did not answer, why not. B00's check, the doctor's E-00
+ * (which runs that check) and the upgrade's floor line all ask through here, so all three say the same thing.
+ *
+ * "Found but not ok" was worded as absent in both places. It is three different facts: no answer inside the budget (a cold start, an
+ * antivirus scan of a build it has not met, a background update), an exit status, or a start that failed. A Windows end user's first
+ * upgrade met the first: the plan said `installed: not found — install Claude Code` and refused, and `claude --version` printed
+ * 2.1.319 in 0.18 s right afterwards. So a Claude Code that is there and did not answer is asked ONCE more, and if it still does not
+ * answer the words say what happened and never say to install it. Not on PATH keeps its words and is not asked twice: an empty PATH
+ * does not change between two looks. The price is at most one more budget (10 s) for a Claude Code that hangs outright.
+ *
+ * ARC-09-C270 — and "not on PATH" is itself two cases. When the native installer's file is there (`exec.nativeInstall`), Claude Code IS
+ * installed and only its folder is missing from PATH, which the installer does not always add; that is `offPath`, with the sentence every
+ * caller quotes (`cause`: where it is and that its folder is not on PATH) and the platform's fix (`remedy`), and it never says to install.
+ * Only when that file is not there either is it `absent`, with the words it has always had.
+ *
+ * `kind` is `absent`, `offPath`, `answered` (the output is the caller's to judge), or `unanswered`, which has the clause every caller
+ * quotes (`said`) and the one remedy (`remedy`). Whether the floor is met stays with the callers, and so does what each does about it.
+ */
+export function probeClaude(exec) {
+  let r = exec('claude', ['--version']);
+  if (r.found && !r.ok) r = exec('claude', ['--version']);
+  if (!r.found) {
+    const native = exec.nativeInstall?.('claude') ?? null;
+    if (!native) return { r, kind: 'absent' };
+    return { r, kind: 'offPath', path: native.path, cause: offPathSentence(native.path),
+      remedy: remedyFor('claudeCode', { platform: native.plat, variant: 'offPath' }) };
+  }
+  if (r.ok) return { r, kind: 'answered' };
+  const line = firstLine(r.stderr);
+  const where = `found at ${r.bin ?? 'claude'}, but \`claude --version\``;
+  let said;
+  if (r.timedOut) {
+    said = `${where} gave no answer in ${Math.round(PROBE_TIMEOUT_MS / 1000)} s (tried twice)`;
+  } else if (typeof r.status === 'number') {
+    said = `${where} exited with code ${r.status}${line ? `: ${line}` : ''}`;
+  } else {
+    // Nothing ran to an exit: Node's code for a file it could not start, a signal that ended it, or an error of ours with a message.
+    const why = r.code ? ` (${r.code})` : r.signal ? ` (ended by ${r.signal})` : line ? `: ${line}` : '';
+    said = `${where} could not be run${why}`;
+  }
+  return { r, kind: 'unanswered', said, remedy: 'run `claude --version` once, then re-run' };
+}
+
 /**
  * 3. Claude Code, and whether it is logged in.
  *
@@ -153,12 +228,23 @@ export function checkGit({ exec, floors, plat }) {
 export function checkClaudeCode({ exec, floors, plat, skip }) {
   if (skip) return warn('claudeCode', 'Claude Code check skipped (--skip-claude-check)');
   const remedy = remedyFor('claudeCode', { platform: plat });
-  const r = exec('claude', ['--version']);
-  if (!r.found) {
+  const probe = probeClaude(exec);
+  if (probe.kind === 'absent') {
     return fail('claudeCode',
       `Claude Code not found on PATH — install it from https://code.claude.com/docs/en/setup, `
       + 'then re-run', remedy);
   }
+  // ARC-09-C270 — installed, and its folder is not on PATH: a failure (nothing can be asked of it), but one that says where it is and
+  // what to add to PATH. `answered: false` keeps `run` from reading a version out of the path the words quote.
+  if (probe.kind === 'offPath') {
+    return fail('claudeCode', probe.cause, probe.remedy, { data: { answered: false } });
+  }
+  // Found and silent: still a failure (a preflight that cannot read the version cannot judge the floor), but a failure that says what
+  // happened. `answered: false` keeps `run` from reading a version out of the path or the stderr line the words quote.
+  if (probe.kind === 'unanswered') {
+    return fail('claudeCode', `Claude Code ${probe.said}`, probe.remedy, { data: { answered: false } });
+  }
+  const r = probe.r;
   const { ok: passes, found } = meetsFloor(r.stdout, floors.claudeCode);
   if (!found) return fail('claudeCode', `Claude Code version not understood: ${r.stdout.trim()}`, remedy);
   if (!passes) {
@@ -365,7 +451,11 @@ export const run = async (ctx) => {
   }
 
   const failures = checks.filter((c) => c.status === 'fail');
-  const versionOf = (cid) => parseVersion(checks.find((c) => c.id === cid)?.detail ?? '');
+  // ARC-09-C269 — a check that says its tool did not answer has no version to read: its detail quotes a path and a stderr line.
+  const versionOf = (cid) => {
+    const c = checks.find((x) => x.id === cid);
+    return c?.data?.answered === false ? null : parseVersion(c?.detail ?? '');
+  };
   const data = {
     node: formatVersion(versionOf('node')),
     git: formatVersion(versionOf('git')),

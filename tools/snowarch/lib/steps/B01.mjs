@@ -10,7 +10,7 @@
 // edit, and the S01 rules — re-evaluated here rather than only at commit time — catch one that was
 // committed.
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { chmodSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { localDir } from '../local-paths.mjs';
 import { manifestSays, manifestSource, refreshManifest } from '../licence/fetch.mjs';
@@ -20,6 +20,7 @@ import { cloudSyncWarning } from '../cloud-sync.mjs';
 import { checkMcpJson, checkSettingsJson } from '../registration.mjs';
 import { FILE, TEXT } from './inputs.mjs';
 import { INPUTS } from '../inputs.mjs';
+import { makePrivateDir } from '../private-dir.mjs';
 
 export const id = 'B01';
 export const title = 'workspace';
@@ -53,7 +54,8 @@ export const REGISTRATION_REMEDY =
 export function ensureLocalDir(root, plat = process.platform) {
   const dir = localDir(root);
   const existed = existsSync(dir);
-  mkdirSync(join(dir, 'logs'), { recursive: true, mode: 0o700 });
+  makePrivateDir(dir);
+  makePrivateDir(join(dir, 'logs'));
   if (plat === 'win32') return { existed, modes: 'acl-inherited' };
   // An existing directory keeps whatever mode it had — `mkdirSync` does not change it — so a
   // checkout bootstrapped before this rule existed would stay 0755 forever without the chmod.

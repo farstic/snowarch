@@ -5,7 +5,7 @@
 // The whole step is "write two array members into a file that belongs to someone else", which is
 // why the writing lives in `settings-local.mjs` and this only decides WHAT to ask for and reports
 // what happened. ARC-08's `--fix` and ARC-06-S12's `mode` call that same function.
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { configPath, localDir, storePath as storePathOf } from '../local-paths.mjs';
 // Four levels up: steps → lib → snowarch → tools → the repository root. In-repo committed
@@ -15,6 +15,7 @@ import { readDefaultLabel } from '../../../../packages/snowarch/dist/store/label
 import { applyToggles, HOOKS_LEFT_ALONE, SETTINGS_LOCAL, writeJsonAtomic } from '../settings-local.mjs';
 import { TEXT } from './inputs.mjs';
 import { INPUTS } from '../inputs.mjs';
+import { makePrivateDir } from '../private-dir.mjs';
 
 export const id = 'B07';
 export const title = 'Claude settings';
@@ -41,7 +42,7 @@ export function writeConfig(root, { mode, registration, storePath, now = new Dat
   // `.local/` is B01's to create, but this must not DEPEND on B01 having run: ARC-08's `--fix`
   // calls B07's writer on its own, and a step that only works in one call order is a trap for
   // whoever calls it next.
-  mkdirSync(localDir(root), { recursive: true, mode: 0o700 });
+  makePrivateDir(localDir(root));
   const store = storePath ?? storePathOf(root);
   const label = existsSync(store) ? readLabel(store) : null;
   const config = {

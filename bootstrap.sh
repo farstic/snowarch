@@ -14,11 +14,15 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 SERVER_KEY='servicenow'
 MSG_NODE_DARWIN='brew install node@22'
 MSG_NODE_LINUX='install Node.js from your distribution'\''s package manager, or use nvm'
-MSG_NODE_WIN='winget install OpenJS.NodeJS.LTS'
+MSG_NODE_WIN='winget install OpenJS.NodeJS.LTS, or without administrator rights: the Node.js zip from nodejs.org, in your user folder (docs/INSTALL-WINDOWS.md, step 2b)'
 MSG_GIT_DARWIN='xcode-select --install (or: brew install git)'
 MSG_GIT_LINUX='install git with your distribution'\''s package manager (apt install git · dnf install git)'
-MSG_GIT_WIN='winget install Git.Git'
+MSG_GIT_WIN='winget install Git.Git, or without administrator rights: Git for Windows from git-scm.com, installed for your user only (docs/INSTALL-WINDOWS.md, step 2a)'
 MSG_CLAUDE='install Claude Code from https://code.claude.com/docs/en/setup, then re-run'
+MSG_CLAUDE_PATH_DARWIN='add ~/.local/bin to your PATH with this line, then re-run (bash on macOS: ~/.bash_profile instead; https://code.claude.com/docs/en/troubleshoot-install): echo '\''export PATH="$HOME/.local/bin:$PATH"'\'' >> ~/.zshrc && source ~/.zshrc'
+MSG_CLAUDE_PATH_LINUX='add ~/.local/bin to your PATH with this line, then re-run (zsh: ~/.zshrc instead; https://code.claude.com/docs/en/troubleshoot-install): echo '\''export PATH="$HOME/.local/bin:$PATH"'\'' >> ~/.bashrc && source ~/.bashrc'
+MSG_CLAUDE_PATH_WIN='add that folder to your PATH with this PowerShell line, then open a new PowerShell window and re-run (https://code.claude.com/docs/en/troubleshoot-install): [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "User") + ";$env:USERPROFILE\.local\bin", "User")'
+MSG_CLAUDE_PATH_FMT='Claude Code is installed at %s, but that folder is not on PATH'
 MSG_NET='check your network, or set HTTPS_PROXY / NO_PROXY for your environment, and re-run'
 MSG_DNS_FMT='cannot reach %s (DNS) — check your network and re-run'
 MSG_UPSTREAM_LOCAL='corpus upstream is local — no probe'
@@ -86,9 +90,9 @@ fi
 
 PLAT="$(platform)"
 case "$PLAT" in
-  darwin) NODE_REMEDY="$MSG_NODE_DARWIN" ; GIT_REMEDY="$MSG_GIT_DARWIN" ;;
-  win32)  NODE_REMEDY="$MSG_NODE_WIN" ; GIT_REMEDY="$MSG_GIT_WIN" ;;
-  *)      NODE_REMEDY="$MSG_NODE_LINUX" ; GIT_REMEDY="$MSG_GIT_LINUX" ;;
+  darwin) NODE_REMEDY="$MSG_NODE_DARWIN" ; GIT_REMEDY="$MSG_GIT_DARWIN" ; CLAUDE_PATH_REMEDY="$MSG_CLAUDE_PATH_DARWIN" ;;
+  win32)  NODE_REMEDY="$MSG_NODE_WIN" ; GIT_REMEDY="$MSG_GIT_WIN" ; CLAUDE_PATH_REMEDY="$MSG_CLAUDE_PATH_WIN" ;;
+  *)      NODE_REMEDY="$MSG_NODE_LINUX" ; GIT_REMEDY="$MSG_GIT_LINUX" ; CLAUDE_PATH_REMEDY="$MSG_CLAUDE_PATH_LINUX" ;;
 esac
 [ "$NODE_ONLY" = 1 ] && die B00 "that flag needs Node.js 20+" "$NODE_REMEDY" 3
 [ "$MODE" = live ] && die B00 "live mode needs Node.js 20+" "$NODE_REMEDY" 3
@@ -100,6 +104,12 @@ if [ "$SKIP_CLAUDE" = 1 ] ; then
   say "WARN B00: Claude Code check skipped (--skip-claude-check)"
 else
   CLAUDE_V="$(claude --version 2>/dev/null | sed -n 's/^\([0-9][0-9.]*\).*/\1/p')"
+  # ARC-09-C270: "not on PATH" is two cases, not installed and installed where the native installer puts it (~/.local/bin) with PATH not
+  # naming that folder; the second is not told to install. Only with no `claude` on PATH at all: one there and silent keeps its words.
+  CLAUDE_NATIVE="${HOME:-}/.local/bin/claude" ; if [ "$PLAT" = win32 ] ; then CLAUDE_NATIVE="$CLAUDE_NATIVE.exe" ; fi
+  if [ -z "$CLAUDE_V" ] && [ -n "${HOME:-}" ] && ! command -v claude >/dev/null 2>&1 && [ -e "$CLAUDE_NATIVE" ] ; then
+    die B00 "$(printf "$MSG_CLAUDE_PATH_FMT" "$CLAUDE_NATIVE")" "$CLAUDE_PATH_REMEDY" 3
+  fi
   [ -n "$CLAUDE_V" ] || die B00 "Claude Code not found on PATH" "$MSG_CLAUDE" 3
   ge "$CLAUDE_V" "$(floor claudeCode)" || die B00 "Claude Code $CLAUDE_V found, >= $(floor claudeCode) required" "$MSG_CLAUDE" 3
   say "ok B00 claudeCode: $CLAUDE_V"

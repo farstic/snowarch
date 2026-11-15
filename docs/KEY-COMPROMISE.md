@@ -39,7 +39,7 @@ anyone else. On Windows PowerShell, type `.\snowarch.cmd` wherever this page say
    their new file.
 
    ```sh
-   ./snowarch licence issue --id LIC-2026-0002 --to "Example Licensee" --org "Example Ltd" --scope live --valid-until 2027-10-10 --key ~/snowarch-keys/2027/primary.pem --out ~/snowarch-reissued/LIC-2026-0002.json
+   ./snowarch licence issue --id LIC-2026-0000 --to "Example Licensee" --org "Example Ltd" --scope live --valid-until 2027-10-10 --key ~/snowarch-keys/2027/primary.pem --out ~/snowarch-reissued/LIC-2026-0000.json
    ```
 
    - `--id`, `--to`, `--org`, `--scope` and `--valid-until` are copied from the licence being replaced:

@@ -106,6 +106,22 @@ function treeAt(corpus) {
   } catch { return null; }
 }
 
+/**
+ * ARC-09-C263 — the pages the corpus tree at HEAD holds, as `markdown/<area>/...md`, or `null` when git cannot say. The names
+ * index (names-index-build.mjs) compares it with the pages on disk: equal, and its coverage is the whole tree.
+ */
+export function treePages(corpus) {
+  const tree = treeAt(corpus);
+  return tree ? tree.filter(isPage) : null;
+}
+
+/** ARC-09-C263 — the pages on disk under `markdown/`, as `markdown/<area>/...md` with `/` on every platform. */
+export function diskPages(corpus) {
+  const md = join(corpus, MARKDOWN);
+  if (!existsSync(md)) return [];
+  return walk(md, MARKDOWN).filter(isPage);
+}
+
 /** The `.md` files under `dir`, as `rel/...` with `/` on every platform. */
 function walk(dir, rel, out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

@@ -24,6 +24,7 @@ import { loadContract } from '../../../../packages/contract/lib/contract.mjs';
 import { EXIT_OK, EXIT_USAGE, EXIT_PREREQ } from '../exit.mjs';
 import { meetsFloor } from '../versions.mjs';
 import { childEnv } from '../spawn-env.mjs';
+import { remedyFor } from '../remedies.mjs';
 
 import { SECTIONS } from './registry.mjs';
 import { askOnce } from '../ask.mjs';
@@ -492,7 +493,8 @@ export function resolveCheckout({ cwd = process.cwd(), who = 'DOCTOR', node = pr
   const floor = config?.floors?.node;
   if (floor && !meetsFloor(node, floor).ok) {
     return fail(`${who}: Node ${node} is below the floor ${floor} — `
-      + 'install it (macOS: brew install node@22 · Windows: winget install OpenJS.NodeJS.LTS · '
+      + 'install it (macOS: brew install node@22 · '
+      + `Windows: ${remedyFor('node', { platform: 'win32' })} · `
       + "Linux: your distribution's package or nvm)");
   }
 

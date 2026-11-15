@@ -9,6 +9,246 @@ All notable changes to this project are documented in this file. Everything hand
 
 ### Notes
 
+## 2.2.6 — 2026-11-15
+
+### Notes
+
+**A patch release: the Architect reads the ServiceNow documentation with no page limit, a change measured before it shipped;
+every install gets a names index of the documentation; and a Windows install has its own page, keeps the instance store private
+and finds a Claude Code that is not on PATH.** The no-limit text was measured against 2.2.5 on 30 held-out ServiceNow tasks, five
+runs each, read by two blind readers and an adjudicator. The Architect called a construct the documentation covers absent,
+unverified or "left to the instance" less often (better in 66 of the 108 task runs where the two versions differed, worse in 42),
+read and cited more of each task's key pages (3.07 against 2.75 per answer), cited fewer pages that do not exist (2 against 8) and
+wrote fewer invented names (6 against 10). The measured text also ended Part 2 with a `Pages read` count; that line was the one place
+the new version did worse (one wrong path, five counts above the pages actually read), so this release leaves it out, and that is its
+only difference from the measured text. The names index is built at `docs sync`, at bootstrap and by `./snowarch doctor --fix`, in
+about 15 seconds, and the doctor's E-33 checks it.
+
+**The upgrade plan says what the upgrade writes.** Its `credentials:` line no longer promises that `.local/instances.json` is never
+read or written, which was not true for an install with an instance: it says that no instance, credential or flag is changed, and
+names the one field written, each instance's last probe.
+
+**A fresh install has a `clients/` folder.** The bootstrap now makes an empty `clients/` (git ignores it, as before), so a first
+`Status` finds an empty engagement folder instead of a missing one. An existing `clients/`, a link or a file of that name is never
+touched, and an upgrade neither names nor moves it.
+
+**The doctor tells a fresh install what to do.** Before `claude` has been started in the folder, E-27 now says to start `claude` once
+and answer its question about the project's MCP server, instead of telling you to run `mode live` or `mode design` again, which
+cannot change that state.
+
+**The upgrade and the preflight tell a Claude Code that is slow from one that is missing.** When `claude --version` gives no answer in
+10 seconds, or exits with an error, the upgrade plan, its refusal, the bootstrap's preflight and the doctor now say where Claude Code
+was found and what it did (no answer in 10 s, tried twice; or the exit code and the first line it printed), and ask you to run
+`claude --version` once and run again. They no longer say it was not found and tell you to install it. The command is asked a second
+time before it is given up on, so one slow start, such as a first start after an update or a virus scan, no longer stops an upgrade.
+The upgrade from 2.2.5 to this release still runs 2.2.5's own check: if its plan says `installed: not found` while `claude --version` prints a version, run `claude --version` once and run the upgrade again.
+
+**A Claude Code that is installed but not on PATH is no longer told to be installed.** Claude Code's native installer puts the program in
+`~/.local/bin` (`%USERPROFILE%\.local\bin\claude.exe` on Windows) and does not always add that folder to PATH, so a Windows install
+ended with `'claude' is not recognized` and a bootstrap that said `Claude Code not found on PATH — install it`, which the reader had
+just done. When `claude` is not on PATH, the bootstrap's preflight (the Node path and both launchers), the doctor, the upgrade plan and
+its refusal, and `--register` now look in that folder. If the file is there they say where Claude Code is and that its folder is not
+on PATH, and give the line that adds it for your platform (one PowerShell line for the user PATH on Windows, no administrator window; the
+`echo` line for zsh or bash on macOS and Linux) and Claude Code's troubleshooting page. They no longer say to install it. If nothing is
+there, the words are the ones they had.
+
+**There is a page for a Windows user who is not an administrator.** `docs/INSTALL-WINDOWS.md`, linked from the README and the install page,
+takes a Windows 10 or 11 computer with nothing installed to a working install: Git, Node.js, Claude Code and draw.io for your own user only,
+with no administrator rights and without `winget`, one command in each block, the plan screen and the seven wizard questions explained one by
+one, and the commands for changing an answer later, renewing the licence, upgrading and uninstalling. It was written from the first end-to-end
+install on such a computer, its clone command carries the release tag that the release writes, and tests hold it to the product's own words,
+commands and states.
+
+**The instance store is private on Windows.** It holds the basic-auth password. On macOS and Linux it is 0600 in a 0700 folder; on Windows
+it was whatever its folder inherited, and a folder made directly under `C:\` hands `BUILTIN\Users` read and `Authenticated Users` modify to
+everything made in it, so every other account on the computer could read it. The wizard said the permissions were "inherited from the folder",
+and the doctor skipped the check and reported the store as healthy. Now a folder the product creates (`.local/`, its logs, the store's own
+folder) is locked to your account and SYSTEM, by SID, with `icacls`. Storing a credential (`instance add`, `set-credentials`,
+`import --from-legacy`) makes the store, and the product's own folder, private whatever they were — an existing `.local/` that holds a licence
+too, which follows its folder — and says what it changed: "It was open to BUILTIN\Users and NT AUTHORITY\Authenticated Users; its
+permissions were changed just now." A save that stores nothing new never makes an open file private and keeps a private one private. The
+doctor's SV-02 reads the permissions and names who else can read the store ("BUILTIN\Users can read it"). Its repair for the checkout's
+own store is `doctor --fix` (F9), which shows its plan first; for any other store it prints one PowerShell line that works out your account
+itself. Nothing changes an existing store's permissions without saying so.
+
+### Added
+
+- `./snowarch doctor` gains E-33, the names index of the docs pin: a file under `.local/corpus-names/` (about 9 MB for the whole corpus)
+  that says which pages of the documentation corpus print a name. The bootstrap and `docs sync` build it once the corpus is complete, and
+  `./snowarch doctor --fix` builds it too (F10), which E-33 points to when the index is missing or was built for another docs pin. An
+  upgrade runs the docs step of the bootstrap once more for an install made before the index existed, and its plan says what that does:
+  "builds the documentation names index once, about 15 s" (14.8 s for the whole corpus on a Mac). A build that fails is a sentence and
+  never stops the sync (ARC-09-C263).
+- `docs verify` fails a skill or agent line that calls a name "not documented" when the corpus prints it, and prints one more line,
+  `strict marker subjects` (ARC-09-C263).
+
+### Changed
+
+- The Architect reads the documentation with no page limit. The grounding rule (`CLAUDE.md` and the six gateways' Part 2) said "twelve by
+  default; while pages remain, open a construct's page before you call it unverified; past that, say which construct is still unverified
+  and what you will open, then continue", and 38 of 41 measured Envelopes stopped under twelve pages and 3 at exactly twelve, then called
+  constructs "not documented", one of them "in the pages I opened". Now it reads the pages for the constructs in play until each is cited
+  from a page it read, or a search of the corpus that copes with its escaped underscores did not find it. A construct a search finds is
+  opened, never labelled; "not documented in the bundled corpus — verify on the instance" is for a construct such a search did not find; it
+  searches with names the request, the skill or a page it read gives it, never a name it made up; two pages that disagree are both cited and
+  the difference is an OPEN QUESTION; and a field a page creates in an example belongs to that example, not to baseline. A co-fired Envelope
+  is grounded as fully as a single one (ARC-09-C263).
+
+### Fixed
+
+- The upgrade plan's `credentials:` line said that `.local/instances.json` is never read or written by the upgrade. The verify step of
+  the bootstrap that the upgrade runs (B08) signs in to each configured instance with its stored credentials and records the result as
+  that instance's `lastProbe`, so the line was not true for an install with an instance. It now says what is: no instance, credential
+  or flag is changed, and apart from a migration announced above the only field written is each instance's `lastProbe`, by step B08
+  when it re-runs. The install page and the README say the same (ARC-09-C264).
+- `Status` in a fresh install no longer meets `ls: clients: No such file or directory`: the bootstrap makes an empty `clients/` when
+  none is there, and an install made before this release gets it at its next bootstrap or upgrade, without any step running again
+  for it. The wording of the Status steps is unchanged (ARC-09-C265).
+- On a fresh install, before `claude` has been started in the folder, the doctor's E-27 said the server was unapproved (live) or not
+  disabled (design-only) and told you to run `mode live` or `mode design` again, which cannot change it: Claude Code does not read
+  those settings before it has been started in the folder. For Claude Code's own `Pending approval (run `claude` to approve)` the
+  remedy is now to start `claude` in the folder once, answer its question about the project's MCP server (No for design-only, Yes for
+  live) and run the doctor again. Every other E-27 state and its remedy is unchanged (ARC-09-C266).
+- A Claude Code that was installed but did not answer `claude --version` within 10 seconds was reported as `installed: not found — install
+  Claude Code` in the upgrade plan, in the refusal that follows it and in the bootstrap's preflight, and the upgrade stopped on a machine
+  where the command printed its version a moment later (a Windows first run from 2.2.4; the second run passed). `makeExec` now returns
+  why a tool on PATH did not answer, one helper asks `claude --version` a second time and names the path, the budget or the exit code and
+  the first line on stderr, with the remedy to run it once and run again, and found-but-silent still refuses without `--force-floor`.
+  The words for a Claude Code that is not on PATH, a version that is not understood and a version below the floor are unchanged. An
+  upgrade from 2.2.5 runs 2.2.5's own plan, so the new floor line appears from 2.2.6 on (ARC-09-C269).
+- On Windows, a Claude Code installed by its native installer into `%USERPROFILE%\.local\bin` was reported as `Claude Code not found on
+  PATH` with the remedy `install Claude Code from …, then re-run`, in the bootstrap's preflight, in `bootstrap.ps1`, in the upgrade plan
+  and its refusal, and in `--register`; the reader installed it again and met the same line (found in an end-to-end install of 2.2.5 on
+  Windows, where the installer's own notes had said the folder was not on PATH). `makeExec` now carries `nativeInstall`, which says
+  whether the native installer's file is there (`%USERPROFILE%\.local\bin\claude.exe`, or `~/.local/bin/claude` on macOS and Linux,
+  from the platform's own home variable), and `probeClaude` returns a new kind, `offPath`, when `claude` is not on PATH and that file
+  is. The sentence (`Claude Code is installed at <path>, but that folder is not on PATH`) and the fix for each platform are data
+  (`remedies.json`, under `claudeCode.offPath`) and are generated into both launchers, whose own B00 looks for the file the same way.
+  A `claude` that is on PATH is never looked for there, and nothing in that folder keeps the words it had (ARC-09-C270).
+- Five things from that install. The plan screen said an install takes "about a minute"; it says
+  "a few minutes" (the documentation alone took 147 s). The closing health line names the licence in words, `1 warn (E-31 the licence)`, where it
+  said only `E-31`; no other line and no other id changed. On Windows the git and Node.js remedies name the way that needs no administrator
+  rights after the `winget` command, in the launchers and the tables (generated from `remedies.json`) and in the doctor's two hand-written
+  copies of the Node.js one. The troubleshooting page explains `0x8a15000f`, `The operation was canceled by the user` and `is not recognized`,
+  and the modes page says that `now-sdk` needs npm's folder, `%APPDATA%\npm`, on PATH. The Word converter's examples run under `powershell`,
+  the 5.1 that every Windows has, and not `pwsh` (ARC-09-C271).
+- Node.js 26 is tested on Linux and Windows: `test` on ubuntu-latest and windows-latest, the Windows `bootstrap` cell and `windows-native`, four
+  more checks (59 to 63), so the README can say that 20, 22 and 24 are tested on Linux, macOS and Windows and 26 on Linux and Windows. The
+  generator of the required contexts read an unquoted matrix value as empty; it reads all three forms now. The first run of the suite under
+  Node 26 found one thing: the test-only licence hook was installed through `module.register()`, which Node 26 deprecates with a warning on
+  stderr in every process the hook is loaded into, and seven cases that read a child's stderr or its JSON failed on it. It installs through
+  `registerHooks` where Node has it (22.15 and later) and keeps `register()` for Node 20; nothing shipped is affected, and the guard that keeps
+  shipped code away from `register` holds it away from `registerHooks` too (ARC-09-C271).
+- On Windows the instance store, which holds the basic-auth password, was readable by every account on the computer when it sat in a folder
+  made directly under `C:\` (a folder such as `C:\work\…` or `C:\AI_Arch`): `BUILTIN\Users` read and
+  `Authenticated Users` modify are inherited from the drive root (measured on a windows-latest runner, with a second local account denied the
+  locked file and reading an open one). `saveStore` now locks a folder it creates, and a file it creates in a folder that was there, to the
+  account and SYSTEM, by SID (`icacls /inheritance:r /grant:r`); `instance add`, `set-credentials` and `import --from-legacy` pass
+  `lock: 'always'` and report what they changed; a routine save reads the file first and makes the replacement private again if it was, because a
+  save replaces the file with one made in its folder. The engine's private folders (`.local/`, logs, the licence and upgrade caches, the
+  doctor's cache) and the server's (the audit log, the licence state, the integrity files) are made by `makePrivateDir`, and a test fails
+  on any `mkdirSync` with a mode outside the two helpers. SV-02 reads the DACL (from the SDDL `icacls /save` writes, so no language matters)
+  and tolerates the account, SYSTEM and Administrators; F9 (`store-acl`) is the whitelisted repair (ARC-09-C272).
+- `scripts/render-drawio.sh` did not find draw.io Desktop on Windows. It looked for `drawio` on PATH and for three macOS and Linux paths,
+  so in Git Bash a `draw.io.exe` that was there was reported as not found, with `brew install --cask drawio` as the remedy, and a Windows
+  user had to make a `drawio` shim by hand to get a Word document with a diagram. It now finds `drawio`, `draw.io` and `draw.io.exe` on
+  PATH and, on Windows, `%LOCALAPPDATA%\Programs\drawio` (the zip), `%LOCALAPPDATA%\Programs\draw.io` (the per-user installer) and
+  `%PROGRAMFILES%\draw.io`. When it finds nothing it gives the install line of the platform it runs on: `brew` for macOS only, the zip that
+  needs no administrator rights for Windows, the packages for Linux. macOS keeps its sentence, and a shim made by hand keeps working.
+  `scripts/README.md` says the same (ARC-09-C273).
+- The README, the install page and the Windows guide told a reader that git 2.25 is enough, and the bootstrap refuses anything below 2.34.1
+  in its preflight (B00: `git 2.30.0 found, >= 2.34.1 required`), so a reader with git 2.30 who followed a page was told they were ready and
+  then refused. The three pages now say 2.34.1, with the floor's own reason in the install table (the oldest git the install was run on,
+  which is the one Ubuntu 22.04 LTS ships), and so does one sentence of the platform notes. The floor is still read from
+  `engine.config.json`; a test now reads each page's floors from that file as well and fails when a page says another one. The install
+  page's paragraph on what the corpus costs, and the README's copy of it, now also say that the bootstrap builds the names index: about
+  9 MB under `.local/corpus-names/`, about 15 seconds once for each docs pin (ARC-09-C275).
+
+### Added
+
+- engine: ARC-09-C263b, the grounding rule has no page limit, as #567 has it (f751420)
+- tests: ARC-09-C263, the turn report keeps the Envelope before a Stop block (c927dd5)
+- engine: ARC-09-C263, docs verify fails a roster line calling a printed name absent (fb790bb)
+- engine: ARC-09-C263, a corpus names index, built at docs sync, bootstrap and --fix (c77450b)
+
+### Fixed
+
+- engine: ARC-09-C263, the upgrade plan says what the index build does, and its time (5aa254f)
+- ci: ARC-09-C273, the step passes shellcheck; the cases read only the script's lines (f2719ed)
+- bootstrap: ARC-09-C271, the Windows git and Node remedies add a way without admin (c8df4fb)
+- bootstrap: ARC-09-C271, the plan screen says a few minutes; the quick line names E-31 (34c5939)
+- doctor: ARC-09-C273, E-04 looks for draw.io where the renderer looks on Windows (66e5144)
+- wizard: ARC-09-C272, the Saved line for another file no longer ends in "you:" (73e9e9f)
+- engine: ARC-09-C273, render-drawio finds draw.io Desktop where Windows puts it (a5afdf5)
+- server: ARC-09-C272, a failed lock never blocks a save; the note says what retries (dff347b)
+- server: ARC-09-C272, RID 500 is the account itself; the guards name this change (32ac9c3)
+- server: ARC-09-C272, the store and the product's folders are private on Windows (3c7037e)
+- ci: ARC-09-C270, the Windows step finds its text with find, not findstr (b21da0e)
+- engine: ARC-09-C270, an installed Claude Code off PATH is named, not reinstalled (81dc808)
+- engine: ARC-09-C269, a silent Claude Code is not a missing one; ask twice, say why (9e2b3f8)
+- engine: ARC-09-C265, the bootstrap command makes clients/, so no step goes stale (f45af26)
+- doctor: ARC-09-C266, E-27 tells a fresh install to start claude, not to rerun a mode (44ff433)
+- engine: ARC-09-C265, the bootstrap makes an empty clients/, so Status finds no error (60d88c2)
+- engine: ARC-09-C264, the upgrade plan names the one field it writes, lastProbe (6587d29)
+
+### Internal
+
+- ARC-09-C275, the corpus costs on the install page name the names index (e94e666)
+- ARC-09-C275, the changelog line and the plan row for the git floor on the pages (780b406)
+- ARC-09-C275, the install pages state the git floor B00 enforces, 2.34.1 (2ec9eb4)
+- tests: ARC-09-C275, red: four pages state git 2.25 where B00 refuses below 2.34.1 (f05223d)
+- changelog: 2.2.6, the Notes' first paragraph, written by the architect (f2b4f87)
+- changelog: 2.2.6, the Notes begin with a paragraph left empty for the architect (bd1358b)
+- ARC-09-C274, the hit count is four in about three hours, in three places (85061c0)
+- ARC-09-C263b, the changelog, the cap history and the plan row (668b556)
+- tests: ARC-09-C263b, T-47 reads past twelve pages and asks for no count (b94a11a)
+- ARC-09-C263, the harvest's changelog, the names index rules and the plan row (53f233b)
+- ARC-09-C274, the rule for a process as another account, its numbers, the plan row (7ea7657)
+- tests: ARC-09-C274, the second-account case starts its children with Process.Start (08a2464)
+- ARC-09-C271, the record says PowerShell 7 was on the test machine, not in the guide (9cc122b)
+- ARC-09-C271, the plan row names the 17 cases, the version pin and the guard (b482ad0)
+- ARC-09-C271, the shipped pages use one placeholder licence id, and a test holds it (b8d72f4)
+- ARC-09-C271, Step 2b installs the Node.js that was run; 5b shows the placeholder id (f4d3a5e)
+- tests: ARC-09-C271, the store-line case takes the launcher from cliSpelling (8c78834)
+- ARC-09-C271, the plan row for the Windows page, built in #578 (d615ea5)
+- ARC-09-C271, the page follows what C272 does to the store, and a test holds it (11ee3cc)
+- engine: ARC-09-C271, a product start prints nothing on stderr on any Node (f204639)
+- engine: ARC-09-C271, the hook chooses its API by feature, and both branches are held (1a585e4)
+- engine: ARC-09-C271, the licence test hook uses registerHooks where Node has it (5362360)
+- ARC-09-C272, CONTRIBUTING records the PSModulePath rule that the Windows run found (e6db212)
+- tests: ARC-09-C272, the second-account case allows 300 s and shows where time went (596e62e)
+- ARC-09-C271, the wizard is a sub-step of Step 6 on the Windows page (bed91dc)
+- ARC-09-C271, CONTRIBUTING records the PSModulePath rule C272's Windows run found (1b1367e)
+- ARC-09-C271, the server changelog names the shipped list's new page (b105a2b)
+- ARC-09-C271, the sample window banner has no copyright line (606d820)
+- tests: ARC-09-C271, 15 cases hold the Windows page to the product; fixtures know it (6184e7a)
+- ARC-09-C271, the Windows page lists what it was not tested on; the changelog (4cf4c42)
+- ARC-09-C271, the Word converter's examples run under the PowerShell all Windows has (0a625c2)
+- ARC-09-C271, troubleshooting names the no-admin messages; now-sdk needs npm's folder (e9b0d64)
+- ARC-09-C271, a page for a Windows user without admin rights, linked and registered (b636ae0)
+- ci: ARC-09-C271, the launcher audit baseline holds the quick line's new literals (48e7745)
+- ci: ARC-09-C271, Node 26 on Linux and Windows: four more cells, 59 to 63 (f1ba437)
+- ARC-09-C273, the scripts README, changelog and plan row for draw.io on Windows (1e9e265)
+- ci: ARC-09-C273, a Windows step runs render-drawio.sh in Git Bash against a stub exe (a4a6d42)
+- doctor: ARC-09-C272, the Windows case expects the ACL verdict, not the old skip (301c7ee)
+- tests: ARC-09-C272, the second-account case gives powershell.exe its own module path (c42d740)
+- ARC-09-C272, the row lists what is verified only at the rc (3c9ce68)
+- ARC-09-C272, the row, the changelogs and the rule for private folders (9261951)
+- server: ARC-09-C272, red: a store and its folder are private on Windows (dfc7992)
+- engine: ARC-09-C270, the finder's guard reads its imports, not just its calls (bd49113)
+- engine: ARC-09-C270, the install page's cap moves one line for the remedies row (bf0407f)
+- ARC-09-C270, the row, the changelog and the rule: an installed Claude Code is named (c6faac6)
+- engine: ARC-09-C270, red: a Claude Code installed off PATH is not a missing one (1314916)
+- ARC-09-C269, the changelog says the upgrade from 2.2.5 still runs 2.2.5's own check (4f01373)
+- engine: ARC-09-C269, tracked temp helper; launcher audit pin moves two lines (abf2d47)
+- ARC-09-C269, the row, the changelog and the rule say why Claude Code was not found (f1a6b04)
+- engine: ARC-09-C269, red: the upgrade names a Claude Code that is on PATH and fails (1efda44)
+- engine: ARC-09-C269, red: a Claude Code that is on PATH and silent is not absent (cb1471d)
+- tests: ARC-09-C265, the fixture-repository guard counts the clients-dir fixture (7c1e162)
+- ci: ARC-09-C263, gitleaks excuses the beta list recorded in the transcript fixtures (862c0b1)
+
+Tag v2.2.6 · contract a9218937c3b7 · docs-pin c10276e
+
 ## 2.2.5 — 2026-11-02
 
 ### Notes

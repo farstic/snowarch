@@ -12,21 +12,23 @@
 // It is also why the fixers WIRE rather than implement: F1 is the bootstrap's dependency step, F2
 // its docs step, F6 its toggle writer, F4 the server store's own atomic write. A repair with its
 // own idea of how to install dependencies is a second installer.
-import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { localPathFrom, logsDir, storePath as storePathOf } from '../local-paths.mjs';
+import { createLocker } from '../private-dir.mjs';
 import { pathToFileURL } from 'node:url';
 
 import { cachePath, cacheStale, inputsPath } from '../doctor-cache.mjs';
 import { loadStateOrReason, saveState } from '../state.mjs';
 import { cliOf, spellFor } from './spell.mjs';
 import { PRODUCT_KEYS } from '../licence/keys.mjs';
+import { makePrivateDir } from '../private-dir.mjs';
 
 /** The `data.fix.kind` vocabulary. A kind outside this table is never applied — it is reported. */
 export const KINDS = Object.freeze(['deps-missing', 'corpus-missing', 'sparse-mismatch',
-  'head-off-pin', 'flags-incomplete', 'store-mode', 'toggles-mismatch',
-  'hooks-disabled-by-bootstrap', 'hook-absent', 'hook-wrong', 'integrity-restore', 'cache-stale']);
+  'head-off-pin', 'flags-incomplete', 'store-mode', 'store-acl', 'toggles-mismatch',
+  'hooks-disabled-by-bootstrap', 'hook-absent', 'hook-wrong', 'integrity-restore', 'names-index', 'cache-stale']);
 
 /** The one place that says which file a repair is allowed to touch, for the report and the test. */
 export const TARGETS = Object.freeze({
@@ -36,11 +38,13 @@ export const TARGETS = Object.freeze({
   'head-off-pin': 'vendor/ServiceNowDocs',
   'flags-incomplete': '.local/instances.json',
   'store-mode': '.local/',
+  'store-acl': '.local/',
   'toggles-mismatch': '.claude/settings.local.json',
   'hooks-disabled-by-bootstrap': '.claude/settings.local.json',
   'hook-absent': '.claude/settings.local.json',
   'hook-wrong': '.claude/settings.local.json',
   'integrity-restore': 'the covered files E-32 names; what it replaces is kept in .local/integrity-removed/',
+  'names-index': '.local/corpus-names/',
   'cache-stale': '.local/doctor-last.json',
 });
 
@@ -201,6 +205,26 @@ function fixStoreMode({ root, ctx, fix }) {
 }
 
 /**
+ * F9 — the store's folder, locked to the account and SYSTEM (ARC-09-C272). Windows only: POSIX has F5's chmod.
+ *
+ * SV-02 reads who can read the store and fails when anyone besides the account, SYSTEM and Administrators holds an allow entry; this is its
+ * repair for the checkout's own store, run by `--fix`, which shows its plan before anything moves. It locks `.local/` as a folder, so the
+ * files in it follow — an existing licence included, which an inheritance-only change reaches without a recursive walk (measured on a
+ * windows-latest runner). The path arrives as data from the check, and anything not under `.local/` is refused: a repair that locked
+ * a path it was merely handed would be locking something nobody reported.
+ */
+function fixStoreAcl({ root, ctx, fix, locker }) {
+  const platform = ctx.platform ?? process.platform;
+  if (platform !== 'win32') return result('noop', 'file modes are POSIX bits here (F5); there is no ACL to lock');
+  const parts = String(fix?.path ?? '.local').split(/[\\/]+/).filter(Boolean);
+  if (parts[0] !== '.local' || parts.includes('..')) return result('refused', `${fix?.path} is not under .local/`);
+  const target = localPathFrom(root, parts.join('/'));
+  if (!existsSync(target)) return result('noop', 'nothing to lock');
+  const lock = (locker ?? createLocker({ platform })).lock(target, { dir: statSync(target).isDirectory() });
+  return lock.ok ? result('applied', `${parts.join('/')} is readable only by you and SYSTEM now`) : result('failed', lock.reason);
+}
+
+/**
  * F6 — the toggle file, through ARC-06-S05's merge writer.
  *
  * That writer never overwrites a key it does not own, which is the whole reason this is a
@@ -245,6 +269,20 @@ async function fixIntegrity({ root, ctx }) {
   return result('noop', 'the files are as signed');
 }
 
+/**
+ * F10 — ARC-09-C263: the grounding names index of this pin (E-33), built from the corpus that is on disk, through the one policy
+ * module `docs sync` and bootstrap B02 use (docs/sync-index.mjs: a child node, so nothing here can build it in a session). It
+ * rebuilds even when one is held, because the doctor asked: E-33 only sends it here when the index does not load for this pin.
+ */
+async function fixNamesIndex({ root, ctx, run }) {
+  const { CORPUS_DIR } = await import('../docs/sync.mjs');
+  const { indexAfterSync } = await import('../docs/sync-index.mjs');
+  const r = (run ?? indexAfterSync)({ root, corpus: join(root, CORPUS_DIR), pin: ctx.config.docs.pin, force: true,
+    cli: cliOf(ctx), say: () => {} });
+  if (r?.error) return result('failed', r.error);
+  return result('applied', r?.line ? r.line.replace(/^\[docs\] /, '') : null);
+}
+
 /** F7 — a stale cache is deleted; the re-run writes a fresh one. */
 function fixCache({ root }) {
   let removed = 0;
@@ -268,6 +306,7 @@ export const FIXERS = Object.freeze([
   { id: 'F3', kind: 'head-off-pin', title: 'check the corpus out onto the pin', apply: fixHeadOffPin },
   { id: 'F4', kind: 'flags-incomplete', title: 'state every flag explicitly', apply: fixFlags },
   { id: 'F5', kind: 'store-mode', title: 'restore the store directory mode', apply: fixStoreMode },
+  { id: 'F9', kind: 'store-acl', title: 'lock the store folder to you and SYSTEM', apply: fixStoreAcl },
   { id: 'F6', kind: 'toggles-mismatch', title: 'rewrite the mode toggles', apply: fixToggles },
   { id: 'F6', kind: 'hooks-disabled-by-bootstrap', title: 'remove the bootstrap\'s hook toggle',
     apply: fixToggles },
@@ -278,6 +317,7 @@ export const FIXERS = Object.freeze([
   { id: 'F6', kind: 'hook-absent', title: 'register the hooks', apply: fixToggles },
   { id: 'F6', kind: 'hook-wrong', title: 'rewrite the hooks', apply: fixToggles },
   { id: 'F8', kind: 'integrity-restore', title: 'put the signed files back', apply: fixIntegrity },
+  { id: 'F10', kind: 'names-index', title: 'build the grounding names index', apply: fixNamesIndex },
   { id: 'F7', kind: 'cache-stale', title: 'clear the stale doctor cache', apply: fixCache },
 ]);
 
@@ -348,7 +388,7 @@ export function renderPlan({ actions, refused }) {
 export function logFix(root, entries, { now = new Date() } = {}) {
   try {
     const dir = logsDir(root);
-    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    makePrivateDir(dir);
     const stamp = now.toISOString().replace(/[:.]/g, '-');
     const file = join(dir, `doctor-fix-${stamp}.log`);
     writeFileSync(file, `${entries.map((e) => `${e.id} ${e.check ?? '—'} ${e.kind} `

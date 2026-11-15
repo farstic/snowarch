@@ -45,6 +45,12 @@ export function localPathFrom(root, relative) {
   return parts[0] === '.local' ? join(stateRoot(root), ...parts) : join(root, ...parts);
 }
 
+/**
+ * ARC-09-C263 — `.local/corpus-names/<pin, 12 characters>` — the corpus names index for one docs pin (names-index.mjs reads it,
+ * names-index-build.mjs writes it). Built at docs sync, upgrade and `doctor --fix`, never inside a hook or a session.
+ */
+export const corpusNamesDir = (root, pin) => join(localDir(root), 'corpus-names', String(pin).slice(0, 12));
+
 /** `.local/bootstrap-state.json` — what this checkout knows about its own installation. */
 export const statePath = (root) => join(localDir(root), 'bootstrap-state.json');
 

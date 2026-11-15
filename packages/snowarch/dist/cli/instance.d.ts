@@ -6,6 +6,8 @@ import { type StoreLabel } from './format.js';
 import { maskUsername } from '../store/paths.js';
 import { probeReachability } from '../servicenow/reachability.js';
 import { probeAll, type LastProbe, type ProbeClient } from '../servicenow/probes.js';
+import { type AclTools } from '../store/acl.js';
+import { type StoreAclOutcome } from '../store/index.js';
 import { type StoreInstance } from '../store/schema.js';
 import { type FlagName, type Flags } from '../utils/permissions.js';
 export declare const EXIT_OK = 0;
@@ -301,7 +303,13 @@ export declare const savedLine: (label: string, entry: MaskedEntry, isDefault: b
  * account name in it. One surface, two redaction levels, and the leakier one was on the line most
  * likely to be quoted.
  */
-export declare const storeLine: (path: string, platform: NodeJS.Platform | undefined, project: string) => string;
+export declare const storeLine: (path: string, platform: NodeJS.Platform | undefined, project: string, acl?: StoreAclOutcome, env?: NodeJS.ProcessEnv) => string;
+/**
+ * ARC-09-C272 — the sentence for a permission change a person did not ask for by name: what the file or its folder was open to and that it
+ * was changed, or that it could not be made private. Null when there is nothing to say (made private as it was created, or already so).
+ * Folded to the screen's width; the line it follows is not.
+ */
+export declare function aclNote(outcome: StoreAclOutcome | undefined, platform?: NodeJS.Platform, env?: NodeJS.ProcessEnv, fixerApplies?: boolean): string | null;
 /**
  * Why the authentication step did not ask. Named from what was actually observed, never a default sentence.
  *
@@ -378,6 +386,8 @@ export interface AddDeps {
     reachability?: typeof probeReachability;
     env?: NodeJS.ProcessEnv;
     platform?: NodeJS.Platform;
+    /** ARC-09-C272 — the lock tools; the real ones for this process when absent. A test supplies its own. */
+    acl?: AclTools;
 }
 /**
  * The probe client and its options live in `servicenow/probe-client.ts` (ARC-08-S04): the doctor

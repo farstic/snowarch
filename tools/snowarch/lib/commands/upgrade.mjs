@@ -12,9 +12,13 @@
  *
  * Three promises hold whatever happens after it:
  *
- *   **Credentials are never read or written by this command.** `.local/instances.json` is opened by
- *   exactly one thing in an upgrade: S06's migration, in B06, when the release changes the store's
- *   schema — announced in the plan, with its 0600 backup, before the user says yes.
+ *   **No instance, credential or flag is changed by this command.** `.local/instances.json` is written by
+ *   exactly two things in an upgrade: S06's migration, in B06, when the release changes the store's
+ *   schema — announced in the plan, with its 0600 backup, before the user says yes — and the probes of B08,
+ *   which sign in to each configured instance with its stored credentials and record the result as that
+ *   instance's `lastProbe` (ARC-09-C264). The closing doctor probes the same way and writes nothing. The
+ *   plan says so on its `credentials:` line: it used to promise the file was never read or written, which
+ *   B08 made untrue.
  *
  *   **A failure leaves the tree at the new tag with the state file saying which step stopped.**
  *   Re-running finishes the job; that is the resume rule (S05), not a special path here.
@@ -39,7 +43,7 @@ import { loadConfig, root as defaultRoot, version as readVersion } from '../conf
 import { loadState, notHereReason, recordedHere } from '../state.mjs';
 // ARC-08-C29 — the runner's own step list, so the plan and the run are one computation.
 import { STEPS, outputMissingOf } from '../steps/index.mjs';
-import { checkGit, checkNode, makeExec } from '../steps/B00.mjs';
+import { checkGit, checkNode, makeExec, probeClaude } from '../steps/B00.mjs';
 import { nodeInfo, stepContext } from '../bootstrap.mjs';
 import { nonOkLines } from '../doctor/panel.mjs';
 import { formatVersion, meetsFloor } from '../versions.mjs';
@@ -488,6 +492,17 @@ export function stepsThatWillRun(root, tag, { ctx, opts = {} }) {
 }
 
 /**
+ * Why a step runs although its inputs did not move: its OUTPUT is not held (`outputMissing` in the step). ARC-09-C263 added B02's
+ * — the names index of the pin. Only the runner's own comparison (`rerunAtTag`) knows it; the file-diff estimate does not read
+ * `.local/`, so a plan that cannot make the worktree still says "up to date" at the tag itself (ARC-09-C196). B02's reason is said in
+ * the reader's words, what the step will do and how long it takes (14.8 s for the whole corpus on a Mac), not in the runner's.
+ */
+const OUTPUT_MISSING = Object.freeze({
+  B01: 'the release manifest is not held',
+  B02: 'builds the documentation names index once, about 15 s',
+});
+
+/**
  * ARC-08-C29 — THE SET THE RUNNER WILL DECIDE, computed before the user says Y.
  *
  * `stepsThatWillRun` below answers a DIFFERENT question from the one the bootstrap asks. It maps
@@ -616,7 +631,7 @@ export function rerunAtTag(root, tag, { ctx, state, run = spawnSync, keepWorktre
       if (hash === null) { out.set(step.id, 'inputs could not be read'); continue; }
       if (hash !== recorded.inputsHash) { out.set(step.id, 'inputs changed'); continue; }
       if (!(manifestWritten && step.id === 'B01') && outputMissingOf(step, tagCtx)) {
-        out.set(step.id, 'the release manifest is not held');
+        out.set(step.id, OUTPUT_MISSING[step.id] ?? 'its output is not held');
       }
     }
     return out;
@@ -847,12 +862,26 @@ export function storePlan(root, tag, { opts = {}, spell = spellings() } = {}) {
 export function floorCheck(tagInfo, { exec }) {
   const want = tagInfo?.floors?.claudeCode ?? null;
   if (!want) return { line: null, below: false };
-  const r = exec('claude', ['--version']);
+  // ARC-09-C269 — through B00's probe, so a Claude Code that is there and slow is asked again and told from one that is not on PATH.
+  const probe = probeClaude(exec);
+  const r = probe.r;
   // ARC-09-C194 — absent or unreadable is BELOW, not unknown-and-through: the target's B00 refuses both unless its
   // Claude Code check is skipped, which only --force-floor asks for.
-  if (!r.found || !r.ok) {
+  if (probe.kind === 'absent') {
     return { line: `claude-floor ${want} (installed: not found — install Claude Code, or pass `
       + '--force-floor)', below: true, unknown: true };
+  }
+  // ARC-09-C270 — installed, and its folder is not on PATH: below as well (B00 refuses it), and the words say where it is and what to
+  // add to PATH, never to install it. The fix is the last thing on the line, because it ends in a command that is copied from there.
+  if (probe.kind === 'offPath') {
+    return { line: `claude-floor ${want} (${probe.cause} — pass --force-floor to go on without the check, or ${probe.remedy})`,
+      below: true, unknown: true, offPath: true, cause: probe.cause, remedy: probe.remedy };
+  }
+  // ARC-09-C269 — found and silent is below as well (the target's B00 refuses it), but it is installed: the words say what the
+  // call did, and the remedy is to look at it, never to install it.
+  if (probe.kind === 'unanswered') {
+    return { line: `claude-floor ${want} (installed: ${probe.said} — ${probe.remedy}, or pass --force-floor)`,
+      below: true, unknown: true, said: probe.said, remedy: probe.remedy };
   }
   const { ok: passes, found } = meetsFloor(r.stdout, want);
   if (!found) return { line: `claude-floor ${want} (installed version not understood)`, below: true, unknown: true };
@@ -863,6 +892,28 @@ export function floorCheck(tagInfo, { exec }) {
     ? { line: `claude-floor ${want} (installed ${shown} ok)`, below: false }
     : { line: `claude-floor ${want} (installed ${shown} — BELOW the floor; upgrade Claude Code first)`,
       below: true };
+}
+
+/**
+ * The sentence U4 refuses with when the Claude Code floor is not met and --force-floor was not given. Three sentences were here
+ * before ARC-09-C269 and two of them are unchanged, byte for byte: not found or not understood, and below. The third is new: a
+ * Claude Code that is on PATH and did not answer (`floor.said`, from `floorCheck`) is named with where it was found and what it did.
+ */
+export function floorRefusal(floor, { target, want }) {
+  // ARC-09-C270 — installed, folder not on PATH: where it is, then what to do, and the fix last (it ends in a command).
+  if (floor.offPath) {
+    return `upgrade: ${floor.cause}, and ${target} wants ${want} or later; nothing was changed. `
+      + `Pass --force-floor to go on without the check, or ${floor.remedy}`;
+  }
+  if (floor.said) {
+    return `upgrade: Claude Code ${floor.said}, and ${target} wants ${want} or later — ${floor.remedy}, `
+      + 'or pass --force-floor; nothing was changed';
+  }
+  return floor.unknown
+    ? `upgrade: Claude Code was not found, or its version not understood, and ${target} wants `
+      + `${want} or later — install or upgrade it first, or pass --force-floor; nothing was changed`
+    : 'upgrade: the installed Claude Code is below the floor this release wants — upgrade it '
+      + 'first, or pass --force-floor; nothing was changed';
 }
 
 /**
@@ -916,7 +967,11 @@ export function renderPlan({ from, to, commits, date, tagInfo, floor, steps, sto
   // ARC-09-C195 — and when the runner that decided was this release's rather than the target's.
   if (installedBecause) lines.push(`  (computed by the installed release — ${installedBecause})`);
   lines.push(`  ${store.line}`);
-  lines.push('  credentials: untouched (.local/instances.json is never read or written by the upgrade)');
+  // ARC-09-C264 — what is true. Step B08 probes each configured instance with its stored credentials and records the result as that
+  // instance's `lastProbe`; the closing doctor probes the same way and writes nothing. The line used to promise that the file is never
+  // read or written, which B08 makes untrue, so it says what is NOT changed and names the one field that is.
+  lines.push('  credentials: no instance, credential or flag in .local/instances.json is changed; apart from the migration announced above, '
+    + "the only field written is each instance's lastProbe (when it was probed and what the probe saw), by step B08 when it re-runs");
   if (restart) lines.push(`  after the upgrade: ${restart}`);
   return lines.join('\n');
 }
@@ -1221,11 +1276,7 @@ export async function upgradeCommand({ flags = {}, positional = [], log, root = 
     return EXIT_USAGE;
   }
   if (floor.below && !flags['force-floor']) {
-    log.fail(floor.unknown
-      ? `upgrade: Claude Code was not found, or its version not understood, and ${target} wants `
-        + `${tagInfo.floors.claudeCode} or later — install or upgrade it first, or pass --force-floor; nothing was changed`
-      : 'upgrade: the installed Claude Code is below the floor this release wants — upgrade it '
-        + 'first, or pass --force-floor; nothing was changed');
+    log.fail(floorRefusal(floor, { target, want: tagInfo.floors.claudeCode }));
     return EXIT_USAGE;
   }
   // ARC-11-C6 — said with --yes and without, before the question: the move is still the reader's to make.
